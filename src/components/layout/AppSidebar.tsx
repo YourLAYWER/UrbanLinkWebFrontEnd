@@ -26,12 +26,12 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" tooltip="UrbanLink Admin">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <Bus className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">UrbanLink</span>
-                <span className="truncate text-xs text-muted-foreground">Transit admin</span>
+                <span className="truncate text-xs text-sidebar-foreground/70">Transit admin</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -65,7 +65,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <div className="px-2 py-1.5 text-xs group-data-[collapsible=icon]:hidden">
               <p className="truncate font-medium">{user?.name}</p>
-              <p className="truncate text-muted-foreground">{user?.roles.join(', ')}</p>
+              <p className="truncate text-sidebar-foreground/70">{user?.roles.join(', ')}</p>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
