@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (never commit; commit .env.example instead)
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -21,5 +26,9 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
+<<<<<<< HEAD
 *.sw?
 .env
+=======
+*.sw?
+>>>>>>> 71ae623222dc30cd4a98ff72a0abd7bd28cadc86

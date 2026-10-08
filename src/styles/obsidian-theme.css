@@ -1,0 +1,116 @@
+/* Obsidian Transit Operations theme — dark navy + blue variant.
+   Background/surfaces stay the deep navy from the mockup (code.html),
+   but the primary accent color is blue instead of lavender throughout:
+   buttons, the active sidebar item, focus rings, and links. */
+
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Geist:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-display: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+
+  /* Base surfaces — deep navy */
+  --background: #031427;
+  --foreground: #d3e4fe;
+
+  --card: #102034;              /* surface-container */
+  --card-foreground: #d3e4fe;
+
+  --popover: #1b2b3f;            /* surface-container-high */
+  --popover-foreground: #d3e4fe;
+
+  /* Primary accent — blue instead of lavender */
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+
+  --secondary: #7bd0ff;
+  --secondary-foreground: #00354a;
+
+  --muted: #0b1c30;              /* surface-container-low */
+  --muted-foreground: #c6c6cd;   /* on-surface-variant */
+
+  --accent: #26364a;             /* surface-variant */
+  --accent-foreground: #d3e4fe;
+
+  --destructive: #ffb4ab;
+  --destructive-foreground: #690005;
+
+  --border: #45464d;             /* outline-variant */
+  --input: #000f21;              /* surface-container-lowest */
+  --ring: #3b82f6;
+
+  --radius: 0.125rem;
+
+  /* Sidebar — same navy surfaces, blue for the active/selected item */
+  --sidebar: #0b1c30;
+  --sidebar-foreground: #d3e4fe;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #26364a;
+  --sidebar-accent-foreground: #d3e4fe;
+  --sidebar-border: #45464d;
+  --sidebar-ring: #3b82f6;
+
+  /* Chart colors */
+  --chart-1: #3b82f6;
+  --chart-2: #7bd0ff;
+  --chart-3: #4edea3;
+  --chart-4: #ffb4ab;
+  --chart-5: #909097;
+
+  /* Status semantics */
+  --status-active-fg: #4edea3;
+  --status-active-bg: rgba(0, 28, 16, 0.6);
+  --status-active-border: rgba(0, 147, 101, 0.5);
+
+  --status-idle-fg: #7bd0ff;
+  --status-idle-bg: rgba(0, 53, 74, 0.5);
+  --status-idle-border: rgba(0, 166, 224, 0.5);
+
+  --status-critical-fg: #ffb4ab;
+  --status-critical-bg: rgba(147, 0, 10, 0.3);
+  --status-critical-border: rgba(255, 180, 171, 0.5);
+
+  --status-standby-fg: #909097;
+  --status-standby-bg: rgba(144, 144, 151, 0.12);
+  --status-standby-border: rgba(144, 144, 151, 0.4);
+}
+
+.font-mono-data {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-width: 1px;
+  border-style: solid;
+  white-space: nowrap;
+}
+
+.status-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.status-pill-active   { color: var(--status-active-fg);   background: var(--status-active-bg);   border-color: var(--status-active-border); }
+.status-pill-idle     { color: var(--status-idle-fg);     background: var(--status-idle-bg);     border-color: var(--status-idle-border); }
+.status-pill-critical { color: var(--status-critical-fg); background: var(--status-critical-bg); border-color: var(--status-critical-border); }
+.status-pill-standby  { color: var(--status-standby-fg);  background: var(--status-standby-bg);  border-color: var(--status-standby-border); }
