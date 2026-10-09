@@ -22,6 +22,7 @@ export default function FleetPage() {
   const loadFleetData = async () => {
     setIsRefreshing(true);
     try {
+      // Calls your backend FleetController endpoint via adminApi
       const data = await adminApi.getFleetStatus();
       setFleet(data);
     } catch (err) {
@@ -70,8 +71,8 @@ export default function FleetPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Fleet & Telemetry</h2>
-          <p className="text-sm text-muted-foreground">Vehicle status, driver assignment, and maintenance flags.</p>
+          <h2 className="text-2xl font-semibold tracking-tight">Fleet &amp; Telemetry</h2>
+          <p className="text-sm text-muted-foreground">Vehicle status, driver assignment, and maintenance flags from backend database.</p>
         </div>
         <Button variant="outline" size="sm" onClick={loadFleetData} disabled={isRefreshing}>
           <RefreshCw className={isRefreshing ? 'animate-spin' : undefined} />
@@ -101,7 +102,7 @@ export default function FleetPage() {
                 <div>
                   <span className="font-mono text-sm font-bold">{vehicle.unitCode}</span>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Driver: {vehicle.driverName || 'Unassigned'} | Route: {vehicle.route}
+                    Driver: {vehicle.driverName || 'Unassigned'} | Route: {vehicle.route || 'Not assigned'}
                   </div>
                 </div>
                 <div className="flex gap-2">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Download } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,115 @@ export default function FinancePage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* CHARTS GRID SECTION */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Revenue Over Time Chart Card */}
+        <div className="bg-[#111C30] border border-[#1E2E4A] rounded-xl p-6 shadow-xl">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-bold text-white tracking-wide">Revenue Over Time</h3>
+            <div className="flex items-center space-x-2">
+              <select className="bg-[#0B1120] border border-[#1E2E4A] text-slate-300 text-xs rounded px-2.5 py-1.5 font-mono">
+                <option>Last 30 days</option>
+                <option>Last 7 days</option>
+                <option>Today</option>
+              </select>
+              <button className="bg-[#0B1120] border border-[#1E2E4A] hover:bg-[#192642] text-slate-300 text-xs px-3 py-1.5 rounded flex items-center space-x-1 font-mono">
+                <Download size={12} />
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Line Chart Visual Representation */}
+          <div className="h-64 flex flex-col justify-between relative pt-4">
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+              <div className="border-b border-slate-600 w-full"></div>
+              <div className="border-b border-slate-600 w-full"></div>
+              <div className="border-b border-slate-600 w-full"></div>
+              <div className="border-b border-slate-600 w-full"></div>
+              <div className="border-b border-slate-600 w-full"></div>
+            </div>
+
+            <div className="flex justify-between text-[10px] font-mono text-slate-500 absolute left-0 -top-1 h-full flex-col pointer-events-none">
+              <span>$120k</span>
+              <span>$100k</span>
+              <span>$80k</span>
+              <span>$60k</span>
+              <span>$40k</span>
+              <span>$20k</span>
+            </div>
+
+            {/* SVG Wave Line */}
+            <div className="w-full h-48 pl-10 relative flex items-end">
+              <svg className="w-full h-full overflow-visible" viewBox="0 0 500 200" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#a855f7" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                <path d="M 0 160 Q 100 120 200 110 T 400 60 T 480 30 L 480 200 L 0 200 Z" fill="url(#revenueGradient)" />
+                <path d="M 0 160 Q 100 120 200 110 T 400 60 T 480 30" fill="none" stroke="#c084fc" strokeWidth="3" />
+                <circle cx="0" cy="160" r="4" fill="#c084fc" />
+                <circle cx="160" cy="115" r="4" fill="#c084fc" />
+                <circle cx="320" cy="85" r="4" fill="#c084fc" />
+                <circle cx="480" cy="30" r="5" fill="#ffffff" stroke="#c084fc" strokeWidth="2" />
+              </svg>
+            </div>
+
+            {/* X-Axis Labels */}
+            <div className="flex justify-between text-[10px] font-mono text-slate-400 pl-10 pt-2 border-t border-[#1E2E4A]">
+              <span>Sep 1</span>
+              <span>Sep 7</span>
+              <span>Sep 14</span>
+              <span>Sep 21</span>
+              <span>Sep 28</span>
+              <span>Oct 5</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Traffic Sources Doughnut Chart Card */}
+        <div className="bg-[#111C30] border border-[#1E2E4A] rounded-xl p-6 shadow-xl flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white tracking-wide mb-6">Traffic Sources</h3>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-around gap-6 my-4">
+              {/* Doughnut Graphic Representation */}
+              <div className="relative w-40 h-40 flex items-center justify-center">
+                <div className="w-36 h-36 rounded-full border-[16px] border-purple-500 border-t-indigo-600 border-r-purple-400 border-b-indigo-900 flex items-center justify-center shadow-inner">
+                  <div className="text-center font-mono">
+                    <span className="text-xs text-slate-400 block">Visits</span>
+                    <span className="text-sm font-bold text-white">18,204</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="space-y-3 font-mono text-xs">
+                <div className="flex items-center space-x-2">
+                  <span className="w-3 h-3 rounded-full bg-indigo-900 inline-block"></span>
+                  <span className="text-slate-300">Direct • <strong className="text-white">45%</strong></span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-3 h-3 rounded-full bg-purple-500 inline-block"></span>
+                  <span className="text-slate-300">Organic • <strong className="text-white">32%</strong></span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="w-3 h-3 rounded-full bg-purple-300 inline-block"></span>
+                  <span className="text-slate-300">Referral • <strong className="text-white">23%</strong></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t border-[#1E2E4A] font-mono text-xs">
+            <span className="text-slate-400">Total visits: <strong className="text-white">18,204</strong></span>
+            <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-bold">+3.4%</span>
+          </div>
+        </div>
       </div>
 
       {/* Revenue Dimensions */}

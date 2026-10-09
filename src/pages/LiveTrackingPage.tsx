@@ -24,7 +24,19 @@ export default function LiveTrackingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ActiveTripDto[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<MapTarget | null>(incomingTarget);
+  
+  // Default to a fallback target (e.g., Gqeberha center) if no incoming target exists
+  const [selectedTarget, setSelectedTarget] = useState<MapTarget | null>(
+    incomingTarget ?? {
+      name: 'Central Depot / Default View',
+      type: 'Driver',
+      lat: -33.9608,
+      lng: 25.6022,
+      status: 'Active',
+      route: 'Main Routeing Grid',
+      details: 'Select a searched trip to track live telemetry.',
+    }
+  );
 
   const handleSearchTrips = async () => {
     if (!searchQuery.trim()) return;
@@ -45,7 +57,17 @@ export default function LiveTrackingPage() {
         });
       }
     } catch (err) {
-      console.warn('Trip search endpoint unreachable', err);
+      console.warn('Trip search endpoint unreachable, using mock data for testing', err);
+      // Fallback mock data so you can test the map UI immediately if the API fails
+      setSelectedTarget({
+        name: `Test Commuter (${searchQuery})`,
+        type: 'Commuter',
+        lat: -33.9608,
+        lng: 25.6022,
+        status: 'In Transit',
+        route: 'Route A1',
+        details: 'Current station: Main St.',
+      });
       setSearchResults([]);
     } finally {
       setIsSearching(false);
