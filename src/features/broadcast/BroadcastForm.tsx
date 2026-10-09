@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useSendBroadcast } from '@/hooks/useBroadcast';
@@ -8,7 +7,6 @@ import { getApiErrorMessage } from '@/lib/api-error';
 
 export function BroadcastForm() {
   const [message, setMessage] = useState('');
-  const [routeSegmentId, setRouteSegmentId] = useState('');
   const broadcastMutation = useSendBroadcast();
 
   const handleSend = () => {
@@ -16,12 +14,10 @@ export function BroadcastForm() {
     broadcastMutation.mutate(
       {
         message: message.trim(),
-        routeSegmentID: routeSegmentId.trim() ? Number(routeSegmentId) : undefined,
       },
       {
         onSuccess: () => {
           setMessage('');
-          setRouteSegmentId('');
         },
       }
     );
@@ -37,19 +33,6 @@ export function BroadcastForm() {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={4}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="route-segment">
-          Route Segment ID <span className="text-muted-foreground">(optional — leave blank to notify all users)</span>
-        </Label>
-        <Input
-          id="route-segment"
-          type="number"
-          placeholder="e.g. 3"
-          value={routeSegmentId}
-          onChange={(e) => setRouteSegmentId(e.target.value)}
         />
       </div>
 
