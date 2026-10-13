@@ -3,29 +3,31 @@ import { Download, Bus, Activity } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { adminApi } from '@/api/adminApi';
+import { adminApi, type FleetVehicleDto } from '@/api/adminApi';
 
 export default function FinancePage() {
   const [loading, setLoading] = useState(false);
   const [ticketData, setTicketData] = useState<any[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
 
-  // Fleet data states
-  const [fleetData, setFleetData] = useState<any[]>([]);
+  const [fleetData, setFleetData] = useState<FleetVehicleDto[]>([]);
   const [loadingFleet, setLoadingFleet] = useState(true);
 
-  // Active view tab for breakdown dimension
   const [activeDimension, setActiveDimension] = useState<'route' | 'payment'>('route');
 
-  // Fetch live tickets and fleet records from backend on mount
   useEffect(() => {
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
-
     async function fetchData() {
       // 1. Fetch Tickets
       try {
         setLoadingTickets(true);
-        const resTicket = await fetch(`${API_BASE_URL}/Ticket`);
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken') || sessionStorage.getItem('token');
+        const resTicket = await fetch(`${API_BASE_URL}/Ticket`, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
         if (resTicket.ok) {
           const data = await resTicket.json();
           setTicketData(Array.isArray(data) ? data : (data.data || []));
@@ -36,18 +38,13 @@ export default function FinancePage() {
         setLoadingTickets(false);
       }
 
-      // 2. Fetch Fleet / Bus records
+      // 2. Fetch ALL Fleet records using adminApi.getAllFleet() (Calls /api/fleet/allbusesavailable)
       try {
         setLoadingFleet(true);
-        const resFleet = await fetch(`${API_BASE_URL}/Bus`);
-        if (resFleet.ok) {
-          const data = await resFleet.json();
-          setFleetData(Array.isArray(data) ? data : (data.data || []));
-        } else {
-          setFleetData([]);
-        }
+        const data = await adminApi.getAllFleet();
+        setFleetData(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error('Failed to load fleet data from backend:', err);
+        console.error('Failed to load fleet telemetry:', err);
         setFleetData([]);
       } finally {
         setLoadingFleet(false);
@@ -95,7 +92,6 @@ export default function FinancePage() {
   const chartWidth = 500;
   const chartHeight = 200;
 
-  // Dynamic Y-axis scale calculation
   const peakRevenue = Math.max(...chartPointsRaw.map(p => p.revenue), 100);
   const maxScaleValue = Math.ceil(peakRevenue * 1.2 / 10000) * 10000 || 50000;
   const yAxisTicks = [maxScaleValue, maxScaleValue * 0.75, maxScaleValue * 0.5, maxScaleValue * 0.25, 0];
@@ -122,11 +118,20 @@ export default function FinancePage() {
     return `R${val}`;
   };
 
-  // Calculate dynamic fleet status counts directly from backend records
+  // Fleet Status Calculations capturing active and maintenance units safely
   const totalFleetCount = fleetData.length;
-  const activeCount = fleetData.filter(b => b.status === 'Active' || b.status === 1 || b.status === 'active').length;
-  const idleCount = fleetData.filter(b => b.status === 'Idle' || b.status === 2 || b.status === 'idle').length;
-  const maintenanceCount = fleetData.filter(b => b.status === 'Maintenance' || b.status === 3 || b.status === 'maintenance').length;
+
+  const activeCount = fleetData.filter(v => {
+    const s = String(v.status || '').toLowerCase();
+    return s === 'active' || s === 'in_service' || s === '0' || (v.status as any) === 0 || v.isFixed === true;
+  }).length;
+
+  const maintenanceCount = fleetData.filter(v => {
+    const s = String(v.status || '').toLowerCase();
+    return s.includes('maint') || s === 'inmaintenance' || s === '1' || s === '2' || (v.status as any) === 1 || (v.status as any) === 2 || v.isFixed === false;
+  }).length;
+
+  const idleCount = Math.max(0, totalFleetCount - (activeCount + maintenanceCount));
 
   const activeRatio = totalFleetCount > 0 ? activeCount / totalFleetCount : 0;
   const idleRatio = totalFleetCount > 0 ? idleCount / totalFleetCount : 0;
@@ -136,18 +141,24 @@ export default function FinancePage() {
   const idlePct = Math.round(idleRatio * 100);
   const maintPct = totalFleetCount > 0 ? 100 - (activePct + idlePct) : 0;
 
-  // SVG Doughnut Arc Circumference Calculations
   const circumference = 2 * Math.PI * 60;
   const activeDash = activeRatio * circumference;
   const idleDash = idleRatio * circumference;
   const maintDash = maintRatio * circumference;
 
-  // ----------------------------------------------------
-  // DYNAMIC REVENUE BREAKDOWN CALCULATIONS (BACKEND DRIVEN)
-  // ----------------------------------------------------
-  const totalRevenue = ticketData.reduce((sum, t) => sum + (t.price || t.amount || 25.00), 0) || 1;
+  // Dynamic calculations for cards & breakdown
+  const totalRevenueCalc = ticketData.reduce((sum, t) => sum + (t.price || t.amount || 25.00), 0);
+  
+  const digitalRevenueCalc = ticketData
+    .filter(t => {
+      const method = (t.paymentMethod || t.method || '').toLowerCase();
+      return !method.includes('cash');
+    })
+    .reduce((sum, t) => sum + (t.price || t.amount || 25.00), 0);
 
-  // Group by Route / Line (Fallbacks gracefully if route property is named routeName or routeId)
+  const cashRevenueCalc = totalRevenueCalc - digitalRevenueCalc;
+  const totalTransactionsCount = ticketData.length;
+
   const routeBreakdown = ticketData.reduce((acc: { [key: string]: number }, t: any) => {
     const key = t.routeName || t.lineName || (t.routeId ? `Route #${t.routeId}` : 'Standard Route');
     const amt = t.price || t.amount || 25.00;
@@ -157,12 +168,11 @@ export default function FinancePage() {
 
   const routeItems = Object.keys(routeBreakdown).map((name, idx) => {
     const amount = routeBreakdown[name];
-    const pct = Math.round((amount / totalRevenue) * 100);
+    const pct = totalRevenueCalc > 0 ? Math.round((amount / totalRevenueCalc) * 100) : 0;
     const colors = ['bg-purple-500', 'bg-indigo-500', 'bg-emerald-500', 'bg-amber-500'];
     return { name, amount, pct, color: colors[idx % colors.length] };
   });
 
-  // Group by Payment Method (NFC SmartCard, Cash, Mobile QR)
   const paymentBreakdown = ticketData.reduce((acc: { [key: string]: number }, t: any) => {
     const rawMethod = (t.paymentMethod || t.method || 'Digital SmartCard').toLowerCase();
     let key = 'NFC SmartCard';
@@ -176,7 +186,7 @@ export default function FinancePage() {
 
   const paymentMethods = ['NFC SmartCard', 'QR Mobile App', 'Physical Cash'].map(key => {
     const amount = paymentBreakdown[key] || 0;
-    const pct = totalRevenue > 0 ? Math.round((amount / totalRevenue) * 100) : 0;
+    const pct = totalRevenueCalc > 0 ? Math.round((amount / totalRevenueCalc) * 100) : 0;
     return { name: key, amount, pct };
   });
 
@@ -187,14 +197,16 @@ export default function FinancePage() {
         <p className="text-sm text-muted-foreground">Period: Today (live feed) &middot; Audit cycle: 06:00 - 18:00 UTC</p>
       </div>
 
-      {/* METRICS CARDS */}
+      {/* DYNAMIC METRICS CARDS */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-5">
-            <div className="text-xl font-mono font-bold">R142,860.50</div>
+            <div className="text-xl font-mono font-bold">
+              R{totalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
             <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Digital: <strong className="text-foreground">R112,420.00</strong></span>
-              <span>Cash: <strong className="text-foreground">R30,440.50</strong></span>
+              <span>Digital: <strong className="text-foreground">R{digitalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+              <span>Cash: <strong className="text-foreground">R{cashRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
             </div>
           </CardContent>
         </Card>
@@ -211,10 +223,10 @@ export default function FinancePage() {
 
         <Card>
           <CardContent className="pt-5">
-            <div className="text-xl font-mono font-bold">48,920</div>
+            <div className="text-xl font-mono font-bold">{totalTransactionsCount.toLocaleString()}</div>
             <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Peak load: 114 tx/min</span>
-              <span className="text-secondary">14:15 peak</span>
+              <span>Total recorded transactions</span>
+              <span className="text-secondary">Live feed</span>
             </div>
           </CardContent>
         </Card>
@@ -222,11 +234,11 @@ export default function FinancePage() {
         <Card>
           <CardContent className="pt-5">
             <div className="text-xl font-mono font-bold">
-              7 <span className="text-xs text-muted-foreground">/ 42</span>
+              {activeCount} <span className="text-xs text-muted-foreground">/ {totalFleetCount}</span>
             </div>
             <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Pending audits: 4</span>
-              <span className="text-amber-400">03h 27m left</span>
+              <span>Active fleet units</span>
+              <span className="text-emerald-400">{activePct}% operational</span>
             </div>
           </CardContent>
         </Card>
@@ -406,9 +418,7 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* FULLY DYNAMIC REVENUE DIMENSIONS & BREAKDOWN SECTION */}
-      {/* ---------------------------------------------------- */}
+      {/* REVENUE DIMENSIONS & BREAKDOWN SECTION */}
       <Card>
         <CardHeader className="flex-row items-center justify-between">
           <CardTitle className="text-sm uppercase tracking-wider">Revenue Dimensions &amp; Ticket Distribution</CardTitle>
@@ -428,7 +438,6 @@ export default function FinancePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Dynamic Stacked Distribution Bar */}
           <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-800">
             {routeItems.length > 0 ? (
               routeItems.map((item, idx) => (
@@ -444,7 +453,6 @@ export default function FinancePage() {
             )}
           </div>
 
-          {/* Dynamic Route Breakdown Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {loadingTickets ? (
               <p className="text-xs font-mono text-muted-foreground">Loading route metrics...</p>
@@ -464,7 +472,6 @@ export default function FinancePage() {
             )}
           </div>
 
-          {/* Dynamic Payment Method Distribution Footer */}
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-3 text-xs font-mono text-muted-foreground">
             {paymentMethods.map((pm) => (
               <span key={pm.name}>

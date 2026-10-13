@@ -22,9 +22,9 @@ export default function FleetPage() {
   const loadFleetData = async () => {
     setIsRefreshing(true);
     try {
-      // Calls your backend FleetController endpoint via adminApi
-      const data = await adminApi.getFleetStatus();
-      setFleet(data);
+      // Switch from getFleetStatus() to getAllFleet() to pull all inventory
+      const data = await adminApi.getAllFleet();
+      setFleet(Array.isArray(data) ? data : []);
     } catch (err) {
       console.warn('Fleet endpoint unreachable, showing fallback telemetry', err);
       setFleet(FALLBACK_FLEET);

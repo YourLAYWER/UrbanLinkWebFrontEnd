@@ -64,7 +64,7 @@ export interface FleetVehicleDto {
   unitCode: string;
   fleetNumber?: string;
   driverName?: string;
-  status?: 'IN_SERVICE' | 'MAINTENANCE' | string;
+  status?: string;
   fuelBatteryLevel?: number;
   isFixed?: boolean;
   route?: string;
@@ -113,7 +113,7 @@ export const adminApi = {
     await apiClient.post('admin/accounts/deactivate', { userId, reason });
   },
 
-  // Fleet Operations (FleetController.cs)
+  // Active-only filtered endpoint for general selectors
   getFleetStatus: async (): Promise<FleetVehicleDto[]> => {
     const response = await apiClient.get('fleet/buses/available');
     const rawList = unwrapData<any[]>(response.data);
@@ -122,21 +122,40 @@ export const adminApi = {
       id: item.id,
       unitCode: item.fleetNumber || item.unitCode || `BUS-${item.id}`,
       driverName: item.driverName || 'Unassigned',
-      status: item.status || 'IN_SERVICE',
+      status: item.status || 'Active',
       fuelBatteryLevel: item.fuelBatteryLevel ?? 100,
       isFixed: item.isFixed ?? true,
       route: item.label || item.route || 'Active Route',
     }));
   },
 
-  toggleVehicleFixedStatus: async (vehicleId: string | number, isFixed: boolean): Promise<void> => {
-    await apiClient.put(`fleet/${vehicleId}/status`, {
-      isFixed,
-      status: isFixed ? 1 : 2, // BusStatus enum: 1 = Active, 2 = Maintenance
+  // Calls the C# GetAvailabl() endpoint at fleet/allbusesavailable (fetches ALL units: Active & InMaintenance)
+  getAllFleet: async (): Promise<FleetVehicleDto[]> => {
+    const response = await apiClient.get('fleet/allbusesavailable');
+    const rawList = unwrapData<any[]>(response.data);
+
+    return (rawList || []).map((item) => {
+      const statusStr = String(item.status || '');
+      const isMaint = statusStr.toLowerCase().includes('maint') || item.status === 1 || item.status === 2;
+      return {
+        id: item.id,
+        unitCode: item.fleetNumber || item.unitCode || `BUS-${item.id}`,
+        driverName: item.driverName || 'Unassigned',
+        status: item.status || (isMaint ? 'InMaintenance' : 'Active'),
+        fuelBatteryLevel: item.fuelBatteryLevel ?? 100,
+        isFixed: !isMaint,
+        route: item.label || item.route || 'Standard Route',
+      };
     });
   },
 
-  // Operations & Active Trips
+  toggleVehicleFixedStatus: async (vehicleId: string | number, isFixed: boolean): Promise<void> => {
+    await apiClient.put(`fleet/${vehicleId}/status`, {
+      isFixed,
+      status: isFixed ? 1 : 2,
+    });
+  },
+
   toggleFareDiscount: async (active: boolean): Promise<void> => {
     await apiClient.post('admin/fare-discount', { active });
   },
@@ -148,7 +167,6 @@ export const adminApi = {
     return unwrapData<ActiveTripDto[]>(response.data);
   },
 
-  // Shift Operations (ConductorShiftController.cs)
   startShift: async (payload: StartShiftRequest): Promise<void> => {
     await apiClient.post('conductorshift/start', payload);
   },
@@ -161,7 +179,6 @@ export const adminApi = {
     return response.data;
   },
 
-  // Ticket Operations (TicketController.cs)
   processCashSale: async (payload: CashSaleRequest): Promise<PrintedTicketDto> => {
     const response = await apiClient.post('ticket/cash-sale', payload);
     return unwrapData<PrintedTicketDto>(response.data);
