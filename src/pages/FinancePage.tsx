@@ -14,6 +14,9 @@ export default function FinancePage() {
   const [fleetData, setFleetData] = useState<any[]>([]);
   const [loadingFleet, setLoadingFleet] = useState(true);
 
+  // Active view tab for breakdown dimension
+  const [activeDimension, setActiveDimension] = useState<'route' | 'payment'>('route');
+
   // Fetch live tickets and fleet records from backend on mount
   useEffect(() => {
     const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
@@ -33,10 +36,9 @@ export default function FinancePage() {
         setLoadingTickets(false);
       }
 
-      // 2. Fetch Fleet / Bus records from backend
+      // 2. Fetch Fleet / Bus records
       try {
         setLoadingFleet(true);
-        // Change '/Bus' if your backend controller route is named differently (e.g., '/Buses' or '/Vehicle')
         const resFleet = await fetch(`${API_BASE_URL}/Bus`);
         if (resFleet.ok) {
           const data = await resFleet.json();
@@ -134,11 +136,49 @@ export default function FinancePage() {
   const idlePct = Math.round(idleRatio * 100);
   const maintPct = totalFleetCount > 0 ? 100 - (activePct + idlePct) : 0;
 
-  // SVG Doughnut Arc Circumference Calculations (Radius = 60 => Circumference ~ 376.99)
+  // SVG Doughnut Arc Circumference Calculations
   const circumference = 2 * Math.PI * 60;
   const activeDash = activeRatio * circumference;
   const idleDash = idleRatio * circumference;
   const maintDash = maintRatio * circumference;
+
+  // ----------------------------------------------------
+  // DYNAMIC REVENUE BREAKDOWN CALCULATIONS (BACKEND DRIVEN)
+  // ----------------------------------------------------
+  const totalRevenue = ticketData.reduce((sum, t) => sum + (t.price || t.amount || 25.00), 0) || 1;
+
+  // Group by Route / Line (Fallbacks gracefully if route property is named routeName or routeId)
+  const routeBreakdown = ticketData.reduce((acc: { [key: string]: number }, t: any) => {
+    const key = t.routeName || t.lineName || (t.routeId ? `Route #${t.routeId}` : 'Standard Route');
+    const amt = t.price || t.amount || 25.00;
+    acc[key] = (acc[key] || 0) + amt;
+    return acc;
+  }, {});
+
+  const routeItems = Object.keys(routeBreakdown).map((name, idx) => {
+    const amount = routeBreakdown[name];
+    const pct = Math.round((amount / totalRevenue) * 100);
+    const colors = ['bg-purple-500', 'bg-indigo-500', 'bg-emerald-500', 'bg-amber-500'];
+    return { name, amount, pct, color: colors[idx % colors.length] };
+  });
+
+  // Group by Payment Method (NFC SmartCard, Cash, Mobile QR)
+  const paymentBreakdown = ticketData.reduce((acc: { [key: string]: number }, t: any) => {
+    const rawMethod = (t.paymentMethod || t.method || 'Digital SmartCard').toLowerCase();
+    let key = 'NFC SmartCard';
+    if (rawMethod.includes('cash')) key = 'Physical Cash';
+    else if (rawMethod.includes('qr') || rawMethod.includes('app') || rawMethod.includes('mobile')) key = 'QR Mobile App';
+
+    const amt = t.price || t.amount || 25.00;
+    acc[key] = (acc[key] || 0) + amt;
+    return acc;
+  }, {});
+
+  const paymentMethods = ['NFC SmartCard', 'QR Mobile App', 'Physical Cash'].map(key => {
+    const amount = paymentBreakdown[key] || 0;
+    const pct = totalRevenue > 0 ? Math.round((amount / totalRevenue) * 100) : 0;
+    return { name: key, amount, pct };
+  });
 
   return (
     <div className="space-y-6">
@@ -283,12 +323,10 @@ export default function FinancePage() {
             </div>
             
             <div className="flex flex-col sm:flex-row items-center justify-around gap-6 my-4">
-              {/* Fully Dynamic SVG Doughnut Chart */}
               <div className="relative w-44 h-44 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
                   <circle cx="80" cy="80" r="60" stroke="#1E2E4A" strokeWidth="16" fill="transparent" />
                   
-                  {/* Active Segment */}
                   {activeDash > 0 && (
                     <circle
                       cx="80"
@@ -301,7 +339,6 @@ export default function FinancePage() {
                       strokeDashoffset="0"
                     />
                   )}
-                  {/* Idle Segment */}
                   {idleDash > 0 && (
                     <circle
                       cx="80"
@@ -314,7 +351,6 @@ export default function FinancePage() {
                       strokeDashoffset={`-${activeDash}`}
                     />
                   )}
-                  {/* Maintenance Segment */}
                   {maintDash > 0 && (
                     <circle
                       cx="80"
@@ -329,7 +365,6 @@ export default function FinancePage() {
                   )}
                 </svg>
 
-                {/* Inner Overlay Text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center font-mono pointer-events-none">
                   <span className="text-[11px] text-slate-400 block">Total Fleet</span>
                   <span className="text-sm font-bold text-white">
@@ -338,7 +373,6 @@ export default function FinancePage() {
                 </div>
               </div>
 
-              {/* Dynamic Legend */}
               <div className="space-y-3 font-mono text-xs">
                 <div className="flex items-center space-x-2">
                   <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
@@ -372,44 +406,71 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {/* Revenue Dimensions */}
+      {/* ---------------------------------------------------- */}
+      {/* FULLY DYNAMIC REVENUE DIMENSIONS & BREAKDOWN SECTION */}
+      {/* ---------------------------------------------------- */}
       <Card>
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className="text-sm uppercase tracking-wider">Revenue dimensions &amp; multi-stream distribution</CardTitle>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="cursor-pointer text-secondary hover:underline">By route</span>
-            <span className="cursor-pointer hover:text-foreground">By conductor</span>
-            <span className="cursor-pointer hover:text-foreground">By payment method</span>
+          <CardTitle className="text-sm uppercase tracking-wider">Revenue Dimensions &amp; Ticket Distribution</CardTitle>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
+            <span 
+              onClick={() => setActiveDimension('route')}
+              className={`cursor-pointer transition-colors ${activeDimension === 'route' ? 'text-purple-400 font-bold underline' : 'hover:text-foreground'}`}
+            >
+              By Route
+            </span>
+            <span 
+              onClick={() => setActiveDimension('payment')}
+              className={`cursor-pointer transition-colors ${activeDimension === 'payment' ? 'text-purple-400 font-bold underline' : 'hover:text-foreground'}`}
+            >
+              By Payment Method
+            </span>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
-            <div className="w-[32%] bg-secondary" />
-            <div className="w-[27%] bg-primary" />
-            <div className="w-[20%] bg-accent" />
-            <div className="w-[21%] bg-secondary/60" />
+          {/* Dynamic Stacked Distribution Bar */}
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-800">
+            {routeItems.length > 0 ? (
+              routeItems.map((item, idx) => (
+                <div 
+                  key={idx} 
+                  className={`h-full ${item.color} transition-all duration-500`} 
+                  style={{ width: `${Math.max(item.pct, 5)}%` }}
+                  title={`${item.name}: ${item.pct}%`}
+                />
+              ))
+            ) : (
+              <div className="w-full bg-purple-500/50 h-full" />
+            )}
           </div>
 
+          {/* Dynamic Route Breakdown Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { name: 'Line 4 Crosstown', amount: 'R46,210.00', pct: '32%' },
-              { name: 'Line 2 Metro', amount: 'R38,940.00', pct: '27%' },
-              { name: 'Line 1 Loop', amount: 'R28,420.50', pct: '20%' },
-              { name: 'Suburban Feeders', amount: 'R29,290.00', pct: '21%' },
-            ].map((route) => (
-              <div key={route.name} className="rounded-lg border border-border bg-muted/40 p-4">
-                <p className="mb-1 text-xs font-semibold text-muted-foreground">{route.name}</p>
-                <p className="text-lg font-bold">
-                  {route.amount} <span className="text-xs font-normal text-muted-foreground">({route.pct})</span>
-                </p>
+            {loadingTickets ? (
+              <p className="text-xs font-mono text-muted-foreground">Loading route metrics...</p>
+            ) : routeItems.length > 0 ? (
+              routeItems.map((route) => (
+                <div key={route.name} className="rounded-lg border border-border bg-muted/40 p-4 font-mono">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">{route.name}</p>
+                  <p className="text-lg font-bold">
+                    R{route.amount.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">({route.pct}%)</span>
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-4 rounded-lg border border-border bg-muted/20 p-4 text-center font-mono text-xs text-slate-400">
+                Awaiting route transactions from backend tickets.
               </div>
-            ))}
+            )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
-            <span>NFC SmartCard: <strong className="text-foreground">58% (R82.8k)</strong></span>
-            <span>QR Mobile App: <strong className="text-foreground">21% (R30.0k)</strong></span>
-            <span>Physical Cash: <strong className="text-foreground">21% (R30.4k)</strong></span>
+          {/* Dynamic Payment Method Distribution Footer */}
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-3 text-xs font-mono text-muted-foreground">
+            {paymentMethods.map((pm) => (
+              <span key={pm.name}>
+                {pm.name}: <strong className="text-foreground">{pm.pct}% (R{pm.amount.toFixed(2)})</strong>
+              </span>
+            ))}
           </div>
         </CardContent>
       </Card>
