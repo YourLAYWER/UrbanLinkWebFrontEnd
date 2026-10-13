@@ -48,6 +48,7 @@ export const adminApi = {
 
     return await response.json();
   },
+  
 
   // Fetch available buses using the correct backend route path
   getAvailableBuses: async () => {
@@ -63,5 +64,20 @@ export const adminApi = {
 
     const result = await response.json();
     return result.data || result; 
+  },
+  getTicketSalesHistory: async () => {
+    const response = await fetch('/api/Ticket', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch ticket data from the backend');
+    }
+
+    const result = await response.json();
+    // Handles both raw array or { data: [...] } structure
+    return Array.isArray(result) ? result : (result.data || []);
   }
 };
