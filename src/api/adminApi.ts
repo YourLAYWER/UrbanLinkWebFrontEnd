@@ -129,7 +129,7 @@ export const adminApi = {
     }));
   },
 
-  // Calls the C# GetAvailabl() endpoint at fleet/allbusesavailable (fetches ALL units: Active & InMaintenance)
+  // Calls the C# endpoint (fetches ALL units: Active & InMaintenance)
   getAllFleet: async (): Promise<FleetVehicleDto[]> => {
     const response = await apiClient.get('fleet/allbusesavailable');
     const rawList = unwrapData<any[]>(response.data);
@@ -147,6 +147,11 @@ export const adminApi = {
         route: item.label || item.route || 'Standard Route',
       };
     });
+  },
+
+  // Updates bus status (Active or InMaintenance) matching FleetController route
+  updateBusStatus: async (id: string | number, status: string): Promise<void> => {
+    await apiClient.put(`fleet/${id}/status`, { status });
   },
 
   toggleVehicleFixedStatus: async (vehicleId: string | number, isFixed: boolean): Promise<void> => {
@@ -188,7 +193,7 @@ export const adminApi = {
     await apiClient.put('ticket/status', payload);
   },
 
-  processRefund: async (payload: RefundRequest): Promise<void> => {
-    await apiClient.post('ticket/refund', payload);
+  processRefund: async (ticketId: string | number): Promise<void> => {
+    await apiClient.post(`Ticket/refund/${ticketId}`);
   },
 };

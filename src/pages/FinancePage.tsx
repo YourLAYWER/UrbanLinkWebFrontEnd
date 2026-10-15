@@ -15,6 +15,11 @@ export default function FinancePage() {
 
   const [activeDimension, setActiveDimension] = useState<'route' | 'payment'>('route');
 
+  // Refund state variables
+  const [selectedTxId, setSelectedTxId] = useState('');
+  const [refundAmount, setRefundAmount] = useState<number>(0);
+  const [isRefunding, setIsRefunding] = useState(false);
+
   useEffect(() => {
     async function fetchData() {
       // 1. Fetch Tickets
@@ -38,7 +43,7 @@ export default function FinancePage() {
         setLoadingTickets(false);
       }
 
-      // 2. Fetch ALL Fleet records using adminApi.getAllFleet() (Calls /api/fleet/allbusesavailable)
+      // 2. Fetch ALL Fleet records using adminApi.getAllFleet()
       try {
         setLoadingFleet(true);
         const data = await adminApi.getAllFleet();
@@ -70,6 +75,39 @@ export default function FinancePage() {
       alert('Could not generate PDF report from backend.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProcessRefund = async () => {
+    if (!selectedTxId) return;
+    try {
+      setIsRefunding(true);
+      
+      // Cleanly execute via adminApi client wrapper
+      await adminApi.processRefund(selectedTxId);
+
+      alert('Successfully refunded ticket and updated state.');
+      setSelectedTxId('');
+      setRefundAmount(0);
+
+      // Refresh ticket list
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken') || sessionStorage.getItem('token');
+      const resTicket = await fetch(`${API_BASE_URL}/Ticket`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      if (resTicket.ok) {
+        const data = await resTicket.json();
+        setTicketData(Array.isArray(data) ? data : (data.data || []));
+      }
+    } catch (err) {
+      console.error('Error processing refund:', err);
+      alert('Failed to process refund on backend.');
+    } finally {
+      setIsRefunding(false);
     }
   };
 
@@ -490,24 +528,50 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Transaction ID / Hash</label>
-              <input
-                type="text"
-                readOnly
-                value="TX-904812"
-                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
-              />
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Select Transaction</label>
+              <select
+                value={selectedTxId}
+                onChange={(e) => {
+                  const txId = e.target.value;
+                  setSelectedTxId(txId);
+                  const found = ticketData.find((t: any) => String(t.ticketId || t.id) === txId);
+                  if (found) {
+                    setRefundAmount(found.price || found.amount || 25.00);
+                  } else {
+                    setRefundAmount(0);
+                  }
+                }}
+                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
+              >
+                <option value="">-- Choose transaction --</option>
+                {ticketData.map((t: any) => {
+                  const id = t.ticketId || t.id;
+                  const label = t.qrCodeData || `TX-${id}`;
+                  const amt = t.price || t.amount || 25.00;
+                  return (
+                    <option key={id} value={id}>
+                      {label} - R{amt.toFixed(2)} (Status: {t.status})
+                    </option>
+                  );
+                })}
+              </select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount (ZAR)</label>
               <input
                 type="text"
                 readOnly
-                value="0.00"
-                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm"
+                value={refundAmount ? `R${refundAmount.toFixed(2)}` : 'R0.00'}
+                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
               />
             </div>
-            <Button className="w-full">Issue fare credit / refund</Button>
+            <Button 
+              className="w-full" 
+              onClick={handleProcessRefund} 
+              disabled={isRefunding || !selectedTxId}
+            >
+              {isRefunding ? 'Processing Refund...' : 'Issue fare credit / refund'}
+            </Button>
           </CardContent>
         </Card>
 

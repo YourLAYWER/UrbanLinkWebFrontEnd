@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { adminApi, type FleetVehicleDto } from '@/api/adminApi';
 
-// Fallback demo data if the backend is unreachable, so the page still renders.
 const FALLBACK_FLEET: FleetVehicleDto[] = [
-  { id: '1', unitCode: 'BUS-4412', driverName: 'Jackson Cole', status: 'IN_SERVICE', fuelBatteryLevel: 84, isFixed: true, route: 'Line 4 Crosstown' },
-  { id: '2', unitCode: 'TR-204', driverName: 'Elena Rostova', status: 'MAINTENANCE', fuelBatteryLevel: 32, isFixed: false, route: 'Line 1 Loop' },
+  { id: '1', unitCode: 'BUS-4412', driverName: 'Jackson Cole', status: 'Active', fuelBatteryLevel: 84, isFixed: true, route: 'Line 4 Crosstown' },
+  { id: '2', unitCode: 'TR-204', driverName: 'Elena Rostova', status: 'InMaintenance', fuelBatteryLevel: 32, isFixed: false, route: 'Line 1 Loop' },
 ];
 
 export default function FleetPage() {
@@ -22,7 +21,6 @@ export default function FleetPage() {
   const loadFleetData = async () => {
     setIsRefreshing(true);
     try {
-      // Switch from getFleetStatus() to getAllFleet() to pull all inventory
       const data = await adminApi.getAllFleet();
       setFleet(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -38,16 +36,20 @@ export default function FleetPage() {
     loadFleetData();
   }, []);
 
-  const handleToggleFixed = async (id: string | number, currentFixedState: boolean) => {
-    const newState = !currentFixedState;
+  const handleStatusChange = async (id: string | number, newStatus: string) => {
+    const isNowFixed = newStatus === 'Active';
+
+    // Optimistically update frontend state
     setFleet((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, isFixed: newState, status: newState ? 'IN_SERVICE' : 'MAINTENANCE' } : v))
+      prev.map((v) => (v.id === id ? { ...v, status: newStatus, isFixed: isNowFixed } : v))
     );
+
     try {
-      await adminApi.toggleVehicleFixedStatus(id, newState);
+      // Use the centralized adminApi wrapper to communicate with the backend
+      await adminApi.updateBusStatus(id, newStatus);
     } catch (err) {
-      // Roll back to server truth if the update failed
-      loadFleetData();
+      console.warn('Failed to persist status change, reverting...', err);
+      loadFleetData(); // Roll back to server truth on failure
     }
   };
 
@@ -105,17 +107,21 @@ export default function FleetPage() {
                     Driver: {vehicle.driverName || 'Unassigned'} | Route: {vehicle.route || 'Not assigned'}
                   </div>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex items-center gap-2">
+                  {/* Status Selection Dropdown restricted strictly to Active and InMaintenance */}
+                  <select
+                    value={vehicle.status || 'Active'}
+                    onChange={(e) => handleStatusChange(vehicle.id, e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="InMaintenance">In Maintenance</option>
+                  </select>
+
                   <Button variant="outline" size="sm" onClick={() => handleTrackOnMap(vehicle)}>
                     <MapPin className="size-3.5" />
                     Track on map
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={vehicle.isFixed ? 'secondary' : 'default'}
-                    onClick={() => handleToggleFixed(vehicle.id, Boolean(vehicle.isFixed))}
-                  >
-                    {vehicle.isFixed ? 'Flag issue' : 'Mark fixed'}
                   </Button>
                 </div>
               </div>
