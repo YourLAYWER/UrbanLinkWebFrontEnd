@@ -521,75 +521,80 @@ export default function FinancePage() {
       </Card>
 
       {/* Refunds & Audit Reports */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="flex flex-col justify-between">
-          <CardHeader>
-            <CardTitle className="text-sm uppercase tracking-wider">Process commuter refund</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Select Transaction</label>
-              <select
-                value={selectedTxId}
-                onChange={(e) => {
-                  const txId = e.target.value;
-                  setSelectedTxId(txId);
-                  const found = ticketData.find((t: any) => String(t.ticketId || t.id) === txId);
-                  if (found) {
-                    setRefundAmount(found.price || found.amount || 25.00);
-                  } else {
-                    setRefundAmount(0);
-                  }
-                }}
-                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
-              >
-                <option value="">-- Choose transaction --</option>
-                {ticketData.map((t: any) => {
-                  const id = t.ticketId || t.id;
-                  const label = t.qrCodeData || `TX-${id}`;
-                  const amt = t.price || t.amount || 25.00;
-                  return (
-                    <option key={id} value={id}>
-                      {label} - R{amt.toFixed(2)} (Status: {t.status})
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount (ZAR)</label>
-              <input
-                type="text"
-                readOnly
-                value={refundAmount ? `R${refundAmount.toFixed(2)}` : 'R0.00'}
-                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
-              />
-            </div>
-            <Button 
-              className="w-full" 
-              onClick={handleProcessRefund} 
-              disabled={isRefunding || !selectedTxId}
-            >
-              {isRefunding ? 'Processing Refund...' : 'Issue fare credit / refund'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col justify-between">
-          <CardHeader>
-            <CardTitle className="text-sm uppercase tracking-wider">Conductor shift audit reports</CardTitle>
-            <CardDescription>
-              Compile daily financial transactions, ticket reconciliations, and cash drop variances into a secure PDF
-              pulled directly from the backend server.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button className="w-full" onClick={handleExportReport} disabled={loading}>
-              {loading ? 'Generating PDF...' : 'Download shift report PDF'}
-            </Button>
-          </CardContent>
-        </Card>
+<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  <Card className="flex flex-col justify-between">
+    <CardHeader>
+      <CardTitle className="text-sm uppercase tracking-wider">Process commuter refund</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Select Transaction</label>
+        <select
+          value={selectedTxId}
+          onChange={(e) => {
+            const txId = e.target.value;
+            setSelectedTxId(txId);
+            const found = ticketData.find((t: any) => String(t.ticketId || t.id) === txId);
+            if (found) {
+              setRefundAmount(found.price || found.amount || found.farePaid || 25.00);
+            } else {
+              setRefundAmount(0);
+            }
+          }}
+          className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
+        >
+          <option value="">-- Choose transaction --</option>
+          {ticketData && ticketData.length > 0 ? (
+            ticketData.map((t: any) => {
+              const id = t.ticketId || t.id;
+              const label = t.qrCodeData || t.routeName || `TX-${id}`;
+              const amt = t.price || t.amount || t.farePaid || 25.00;
+              const dateStr = t.issueDate ? ` (${new Date(t.issueDate).toLocaleDateString()})` : '';
+              return (
+                <option key={id} value={id}>
+                  {label} — R{amt.toFixed(2)} [Status: {t.status || 'Active'}]{dateStr}
+                </option>
+              );
+            })
+          ) : (
+            <option value="" disabled>No transactions available</option>
+          )}
+        </select>
       </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount (ZAR)</label>
+        <input
+          type="text"
+          readOnly
+          value={refundAmount ? `R${refundAmount.toFixed(2)}` : 'R0.00'}
+          className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
+        />
+      </div>
+      <Button 
+        className="w-full" 
+        onClick={handleProcessRefund} 
+        disabled={isRefunding || !selectedTxId}
+      >
+        {isRefunding ? 'Processing Refund...' : 'Issue fare credit / refund'}
+      </Button>
+    </CardContent>
+  </Card>
+
+  <Card className="flex flex-col justify-between">
+    <CardHeader>
+      <CardTitle className="text-sm uppercase tracking-wider">Conductor shift audit reports</CardTitle>
+      <CardDescription>
+        Compile daily financial transactions, ticket reconciliations, and cash drop variances into a secure PDF
+        pulled directly from the backend server.
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      <Button className="w-full" onClick={handleExportReport} disabled={loading}>
+        {loading ? 'Generating PDF...' : 'Download shift report PDF'}
+      </Button>
+    </CardContent>
+  </Card>
+</div>
     </div>
   );
 }
