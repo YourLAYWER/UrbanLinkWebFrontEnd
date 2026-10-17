@@ -23,7 +23,7 @@ export const fetchStops = async (): Promise<Stop[]> => {
 
 export interface RoutePayload {
   routeName: string;
-  transportType: number; // enum index, see TRANSIT_TYPES
+  transportType: number;
   baseFare: number;
   providerId: number;
 }
@@ -42,10 +42,10 @@ export const deleteRoute = async (id: number) => {
 };
 
 export interface SchedulePayload {
-  routeId?: number; // only needed on create
+  routeId?: number;
   daysOfOperation: string;
-  firstDepartureTime: string; // "HH:mm"
-  lastDepartureTime: string; // "HH:mm"
+  firstDepartureTime: string;
+  lastDepartureTime: string;
   frequencyMinutes: number;
 }
 
@@ -71,4 +71,16 @@ export const removeStopFromSegment = async (segmentId: number, stopId: number) =
 
 export const addStopToSegment = async (segmentId: number, stopId: number) => {
   await apiClient.post('/RouteStops', { segmentId, stopId });
+};
+
+export interface SegmentPayload {
+  routeId: number;
+  originStopId: number;
+  destinationStopId: number;
+  travelTimeMinutes: number;
+}
+
+export const createSegment = async (payload: SegmentPayload) => {
+  const { data } = await apiClient.post<{ id: number }>('/RouteSegments', payload);
+  return data;
 };

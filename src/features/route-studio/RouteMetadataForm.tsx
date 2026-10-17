@@ -85,11 +85,10 @@ export function RouteMetadataForm({
         <Label htmlFor="route-fare">Base fare</Label>
         <Input
           id="route-fare"
-          type="number"
-          step="0.01"
-          min="0"
+          type="text"
+          inputMode="decimal"
           aria-invalid={!!errors.baseFare}
-          {...register('baseFare')}
+          {...register('baseFare', { valueAsNumber: true })}
         />
         {errors.baseFare && <p className="text-sm text-destructive">{errors.baseFare.message}</p>}
       </div>

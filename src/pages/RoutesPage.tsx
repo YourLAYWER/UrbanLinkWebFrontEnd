@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusPill } from '@/components/StatusPill';
 import { RouteMetadataForm } from '@/features/route-studio/RouteMetadataForm';
 import { ScheduleManager } from '@/features/route-studio/ScheduleManager';
+import { SegmentManager } from '@/features/route-studio/SegmentManager';
 import { StopSequenceEditor } from '@/features/route-studio/StopSequenceEditor';
 import {
   useCreateRoute,
@@ -147,13 +148,16 @@ export default function RoutesPage() {
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle className="font-display text-base">Waypoint sequencing</CardTitle>
-                  <CardDescription>
-                    {route.segments.length === 0
-                      ? "This route has no segments yet. Creating new segments isn't part of this screen yet."
-                      : 'Reorder or remove stops on each segment.'}
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="font-display text-base">Waypoint sequencing</CardTitle>
+                    <CardDescription>
+                      {route.segments.length === 0
+                        ? 'This route has no segments yet. Add one to start sequencing stops.'
+                        : 'Reorder or remove stops on each segment.'}
+                    </CardDescription>
+                  </div>
+                  <SegmentManager routeId={route.id} allStops={stops ?? []} />
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {route.segments.map((segment) => (

@@ -3,8 +3,6 @@
    but the primary accent color is blue instead of lavender throughout:
    buttons, the active sidebar item, focus rings, and links. */
 
-@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&family=Geist:wght@400;500;600;700&display=swap');
-
 :root {
   --font-display: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;

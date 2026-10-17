@@ -1,13 +1,6 @@
 import { z } from 'zod';
 import { TRANSIT_TYPES } from '@/types/route-studio';
 
-// No z.coerce here on purpose: newer @hookform/resolvers versions require the
-// zod schema's input and output types to match exactly when the schema is
-// passed straight to useForm's generic. z.coerce makes the input type
-// "unknown" and the output type "number", which conflicts. Instead, the
-// string-to-number conversion happens in the form via valueAsNumber /
-// setValueAs (see RouteMetadataForm.tsx and ScheduleManager.tsx), so by the
-// time values reach this schema they're already numbers.
 export const routeMetadataSchema = z.object({
   name: z.string().trim().min(1, 'Route name is required').max(100),
   transportType: z.enum(TRANSIT_TYPES),
@@ -25,3 +18,15 @@ export const scheduleSchema = z.object({
   frequencyMinutes: z.number().int().positive('Must be greater than 0'),
 });
 export type ScheduleValues = z.infer<typeof scheduleSchema>;
+
+export const segmentSchema = z
+  .object({
+    originStopId: z.number().int().positive('Choose an origin stop'),
+    destinationStopId: z.number().int().positive('Choose a destination stop'),
+    travelTimeMinutes: z.number().int().positive('Must be greater than 0'),
+  })
+  .refine((v) => v.originStopId !== v.destinationStopId, {
+    message: 'Origin and destination must be different stops',
+    path: ['destinationStopId'],
+  });
+export type SegmentValues = z.infer<typeof segmentSchema>;

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '@/api/route-studio';
-import type { RoutePayload, SchedulePayload } from '@/api/route-studio';
+import type { RoutePayload, SchedulePayload, SegmentPayload } from '@/api/route-studio';
 
 export const routeStudioKeys = {
   providers: ['route-studio', 'providers'] as const,
@@ -103,6 +103,14 @@ export function useAddStop(routeId: number) {
   return useMutation({
     mutationFn: ({ segmentId, stopId }: { segmentId: number; stopId: number }) =>
       api.addStopToSegment(segmentId, stopId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useCreateSegment(routeId: number) {
+  const invalidate = useInvalidateRoutes(routeId);
+  return useMutation({
+    mutationFn: (payload: Omit<SegmentPayload, 'routeId'>) => api.createSegment({ ...payload, routeId }),
     onSuccess: invalidate,
   });
 }
