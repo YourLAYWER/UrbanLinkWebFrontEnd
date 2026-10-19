@@ -176,12 +176,11 @@ export const adminApi = {
     await apiClient.post('conductorshift/start', payload);
   },
 
-  generateShiftReport: async (date: string): Promise<Blob> => {
-    const response = await apiClient.get('conductorshift/reports', {
+  generateShiftReport: async (date?: string) => {
+    const response = await apiClient.get('conductorshift/audit-report', {
       params: { date },
-      responseType: 'blob',
     });
-    return response.data;
+    return response.data; // Returns the JSON list with actual names
   },
 
   processCashSale: async (payload: CashSaleRequest): Promise<PrintedTicketDto> => {

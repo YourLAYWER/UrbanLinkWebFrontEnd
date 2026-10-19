@@ -29,7 +29,6 @@ export default function FinancePage() {
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
         const token = localStorage.getItem('token') || localStorage.getItem('authToken') || sessionStorage.getItem('token');
         
-        // Fetching from your Journey controller
         const resJourney = await fetch(`${API_BASE_URL}/Journey`, {
           headers: {
             'Content-Type': 'application/json',
@@ -65,22 +64,53 @@ export default function FinancePage() {
   const handleExportReport = async () => {
     try {
       setLoading(true);
-      const blob = await adminApi.generateShiftReport(new Date().toISOString().split('T')[0]);
+      const today = new Date().toISOString().split('T')[0];
+      
+      // 1. Get the JSON array of shifts from your backend endpoint
+      const shifts = await adminApi.generateShiftReport(today);
+
+      // 2. Build the readable report content from the JSON data
+      let reportContent = `==========================================================================\n`;
+      reportContent += `                URBANLINK CONDUCTOR SHIFT AUDIT REPORT                   \n`;
+      reportContent += `==========================================================================\n`;
+      reportContent += `Generated On : ${new Date().toLocaleString()}\n`;
+      reportContent += `Total Shifts : ${Array.isArray(shifts) ? shifts.length : 0}\n`;
+      reportContent += `==========================================================================\n\n`;
+
+      if (!Array.isArray(shifts) || shifts.length === 0) {
+        reportContent += `No shift records found.\n`;
+      } else {
+        shifts.forEach((shift: any) => {
+          reportContent += `Shift ID       : #${shift.shiftId}\n`;
+          reportContent += `Conductor      : ${shift.conductorName} (${shift.conductorEmail})\n`;
+          reportContent += `Bus Fleet No.  : ${shift.busFleetNumber}\n`;
+          reportContent += `Transit Route  : ${shift.routeName}\n`;
+          reportContent += `Start Time     : ${shift.shiftStartTime}\n`;
+          reportContent += `End Time       : ${shift.shiftEndTime}\n`;
+          reportContent += `Cash Collected : R ${shift.totalCashCollected.toFixed(2)}\n`;
+          reportContent += `Digital Scans  : ${shift.digitalTicketScanned}\n`;
+          reportContent += `Total Revenue  : R ${shift.totalShiftRevenue.toFixed(2)}\n`;
+          reportContent += `--------------------------------------------------------------------------\n`;
+        });
+      }
+
+      // 3. Create a Blob locally from the text string and download it
+      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `UrbanLink_Shift_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.download = `Conductor_Shift_Audit_Report_${today}.txt`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert('Could not generate PDF report from backend.');
+      console.error('Export report error:', err);
+      alert('Could not generate shift report from backend.');
     } finally {
       setLoading(false);
     }
   };
-
   const handleProcessRefund = async () => {
     if (!selectedTxId) return;
     try {
@@ -92,7 +122,6 @@ export default function FinancePage() {
       setSelectedTxId('');
       setRefundAmount(0);
 
-      // Refresh journey list
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
       const token = localStorage.getItem('token') || localStorage.getItem('authToken') || sessionStorage.getItem('token');
       const resJourney = await fetch(`${API_BASE_URL}/Journey`, {
@@ -149,7 +178,7 @@ export default function FinancePage() {
     return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
   }, '');
 
-  // Fixed syntax issue from original code snippet where array index calculation broke
+  // Fixed syntax issue from index calculation
   const areaPath = chartPoints.length > 0 
     ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${chartHeight} L ${chartPoints[0].x} ${chartHeight} Z`
     : '';
@@ -159,7 +188,7 @@ export default function FinancePage() {
     return `R${val}`;
   };
 
-  // Fleet Status Calculations capturing active and maintenance units safely
+  // Fleet Status Calculations
   const totalFleetCount = fleetData.length;
 
   const activeCount = fleetData.filter(v => {
@@ -180,14 +209,12 @@ export default function FinancePage() {
 
   const activePct = Math.round(activeRatio * 100);
   const idlePct = Math.round(idleRatio * 100);
-  const maintPct = totalFleetCount > 0 ? 100 - (activePct + idlePct) : 0;
 
   const circumference = 2 * Math.PI * 60;
   const activeDash = activeRatio * circumference;
   const idleDash = idleRatio * circumference;
   const maintDash = maintRatio * circumference;
 
-  // Dynamic calculations from Journey records
   const totalRevenueCalc = journeyData.reduce((sum, j) => sum + (j.totalCost || j.price || j.amount || 25.00), 0);
   
   const digitalRevenueCalc = journeyData
@@ -446,7 +473,7 @@ export default function FinancePage() {
                 <div className="flex items-center space-x-2">
                   <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
                   <span className="text-slate-300">
-                    Maintenance • <strong className="text-white">{loadingFleet ? '...' : `${maintenanceCount} (${maintPct}%)`}</strong>
+                    Maintenance • <strong className="text-white">{loadingFleet ? '...' : `${maintenanceCount} (${100 - (activePct + idlePct)}%)`}</strong>
                   </span>
                 </div>
               </div>
@@ -591,13 +618,12 @@ export default function FinancePage() {
           <CardHeader>
             <CardTitle className="text-sm uppercase tracking-wider">Conductor shift audit reports</CardTitle>
             <CardDescription>
-              Compile daily financial transactions, journey reconciliations, and cash drop variances into a secure PDF
-              pulled directly from the backend server.
+              Compile daily financial transactions, journey reconciliations, and cash drop variances into a secure report pulled directly from the backend server.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button className="w-full" onClick={handleExportReport} disabled={loading}>
-              {loading ? 'Generating PDF...' : 'Download shift report PDF'}
+              {loading ? 'Generating Report...' : 'Download shift report PDF'}
             </Button>
           </CardContent>
         </Card>
