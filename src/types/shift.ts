@@ -1,8 +1,9 @@
 export interface Shift {
-  shiftID: number;
+  id: number; // Changed to match C# JSON output
   driverName: string;
   vehicleRegistration: string;
   route: string;
   startTime: string;
-  status: 'Active' | 'Ended' | 'ForceClosed';
+  endTime?: string | null;
+  status: 'Active' | 'Closed';
 }

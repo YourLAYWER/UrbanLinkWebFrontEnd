@@ -2,7 +2,7 @@ import apiClient from './axiosClient';
 import type { Shift } from '@/types/shift';
 
 export async function fetchActiveShifts(): Promise<Shift[]> {
-  const response = await apiClient.get<Shift[]>('/admin/Shift/active');
+  const response = await apiClient.get<Shift[]>('/admin/Shift');
   return response.data;
 }
 

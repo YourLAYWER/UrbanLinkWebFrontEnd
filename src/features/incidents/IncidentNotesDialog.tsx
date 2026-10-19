@@ -20,9 +20,12 @@ export function IncidentNotesDialog({ incident, onClose }: IncidentNotesDialogPr
 
   if (!incident) return null;
 
+  // Grab the correct ID from the C# backend response
+  const correctId = (incident as any).id || incident.incidentID;
+
   const handleSave = () => {
     updateIncident.mutate(
-      { id: incident.incidentID, status: incident.status, adminNotes: notes },
+      { id: correctId, status: incident.status, adminNotes: notes },
       { onSuccess: onClose }
     );
   };
@@ -31,7 +34,7 @@ export function IncidentNotesDialog({ incident, onClose }: IncidentNotesDialogPr
     <Dialog open={!!incident} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Admin notes — Incident #{incident.incidentID}</DialogTitle>
+          <DialogTitle>Admin notes — Incident #{correctId}</DialogTitle>
         </DialogHeader>
         <Textarea
           value={notes}

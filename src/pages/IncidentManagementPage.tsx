@@ -14,7 +14,24 @@ export default function IncidentManagementPage() {
   const [notesTarget, setNotesTarget] = useState<Incident | null>(null);
 
   const handleStatusChange = (incident: Incident, status: IncidentStatus) => {
-    updateIncident.mutate({ id: incident.incidentID, status, adminNotes: incident.adminNotes ?? undefined });
+    // FIX: Grab the correct 'id' from the C# backend. 
+    // Fallback to incidentID just in case your frontend types require it.
+    const correctId = (incident as any).id || incident.incidentID;
+
+    updateIncident.mutate(
+      { 
+        id: correctId, 
+        status: status, 
+        adminNotes: incident.adminNotes ?? undefined 
+      },
+      {
+        // Automatically refresh the table data as soon as the C# backend confirms success!
+        // This will instantly slide the incident over to the Resolved tab with its timestamp.
+        onSuccess: () => {
+          refetch();
+        }
+      }
+    );
   };
 
   return (

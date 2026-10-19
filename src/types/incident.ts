@@ -8,6 +8,7 @@ export interface Incident {
   status: IncidentStatus;
   createdAt: string;
   adminNotes: string | null;
+  resolvedAt?: string | null;
 }
 
 export interface UpdateIncidentPayload {

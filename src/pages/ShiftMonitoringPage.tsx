@@ -23,6 +23,16 @@ export default function ShiftMonitoringPage() {
   const { data, isPending, isError, error, refetch, isFetching } = useActiveShifts();
   const forceCloseShift = useForceCloseShift();
 
+  // Ensure the page instantly updates when a shift is force-closed
+  const handleForceClose = (shiftId: number) => {
+    forceCloseShift.mutate(shiftId, {
+      onSuccess: () => refetch(),
+    });
+  };
+
+  // Only count shifts that are actually active for the top stat card
+  const activeCount = data ? data.filter(s => String(s.status).toLowerCase() === 'active').length : 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -50,7 +60,7 @@ export default function ShiftMonitoringPage() {
           role="alert"
           className="flex items-center justify-between gap-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
-          <span>{getApiErrorMessage(error, 'Could not load active shifts.')}</span>
+          <span>{getApiErrorMessage(error, 'Could not load shifts.')}</span>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             Try again
           </Button>
@@ -59,8 +69,8 @@ export default function ShiftMonitoringPage() {
 
       {data && (
         <>
-          <ShiftStats activeCount={data.length} />
-          <ShiftsTable data={data} onForceClose={forceCloseShift.mutate} isClosing={forceCloseShift.isPending} />
+          <ShiftStats activeCount={activeCount} />
+          <ShiftsTable data={data} onForceClose={handleForceClose} isClosing={forceCloseShift.isPending} />
         </>
       )}
     </div>
