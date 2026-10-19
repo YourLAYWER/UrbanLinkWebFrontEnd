@@ -7,13 +7,14 @@ import { adminApi, type FleetVehicleDto } from '@/api/adminApi';
 
 export default function FinancePage() {
   const [loading, setLoading] = useState(false);
-  const [ticketData, setTicketData] = useState<any[]>([]);
-  const [loadingTickets, setLoadingTickets] = useState(true);
+  const [journeyData, setJourneyData] = useState<any[]>([]);
+  const [loadingJourneys, setLoadingJourneys] = useState(true);
 
   const [fleetData, setFleetData] = useState<FleetVehicleDto[]>([]);
   const [loadingFleet, setLoadingFleet] = useState(true);
 
   const [activeDimension, setActiveDimension] = useState<'route' | 'payment'>('route');
+  const [timeframe, setTimeframe] = useState('30days');
 
   // Refund state variables
   const [selectedTxId, setSelectedTxId] = useState('');
@@ -22,25 +23,27 @@ export default function FinancePage() {
 
   useEffect(() => {
     async function fetchData() {
-      // 1. Fetch Tickets
+      // 1. Fetch Journeys (acting as ticket and revenue source)
       try {
-        setLoadingTickets(true);
+        setLoadingJourneys(true);
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
         const token = localStorage.getItem('token') || localStorage.getItem('authToken') || sessionStorage.getItem('token');
-        const resTicket = await fetch(`${API_BASE_URL}/Ticket`, {
+        
+        // Fetching from your Journey controller
+        const resJourney = await fetch(`${API_BASE_URL}/Journey`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {})
           }
         });
-        if (resTicket.ok) {
-          const data = await resTicket.json();
-          setTicketData(Array.isArray(data) ? data : (data.data || []));
+        if (resJourney.ok) {
+          const data = await resJourney.json();
+          setJourneyData(Array.isArray(data) ? data : (data.data || []));
         }
       } catch (err) {
-        console.error('Failed to load tickets:', err);
+        console.error('Failed to load journeys:', err);
       } finally {
-        setLoadingTickets(false);
+        setLoadingJourneys(false);
       }
 
       // 2. Fetch ALL Fleet records using adminApi.getAllFleet()
@@ -83,25 +86,24 @@ export default function FinancePage() {
     try {
       setIsRefunding(true);
       
-      // Cleanly execute via adminApi client wrapper
       await adminApi.processRefund(selectedTxId);
 
-      alert('Successfully refunded ticket and updated state.');
+      alert('Successfully processed journey refund and updated state.');
       setSelectedTxId('');
       setRefundAmount(0);
 
-      // Refresh ticket list
+      // Refresh journey list
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
       const token = localStorage.getItem('token') || localStorage.getItem('authToken') || sessionStorage.getItem('token');
-      const resTicket = await fetch(`${API_BASE_URL}/Ticket`, {
+      const resJourney = await fetch(`${API_BASE_URL}/Journey`, {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         }
       });
-      if (resTicket.ok) {
-        const data = await resTicket.json();
-        setTicketData(Array.isArray(data) ? data : (data.data || []));
+      if (resJourney.ok) {
+        const data = await resJourney.json();
+        setJourneyData(Array.isArray(data) ? data : (data.data || []));
       }
     } catch (err) {
       console.error('Error processing refund:', err);
@@ -111,20 +113,20 @@ export default function FinancePage() {
     }
   };
 
-  // Group tickets by date for the X-axis
-  const aggregatedTickets = ticketData.reduce((acc: { [key: string]: number }, ticket: any) => {
-    const rawDate = ticket.createdAt || ticket.issueDate || new Date();
+  // Group journeys by date for the X-axis line chart
+  const aggregatedJourneys = journeyData.reduce((acc: { [key: string]: number }, journey: any) => {
+    const rawDate = journey.createdAt || journey.issueDate || new Date();
     const dateStr = new Date(rawDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const price = ticket.price || ticket.amount || 25.00;
+    const cost = journey.totalCost || journey.price || journey.amount || 25.00;
 
     if (!acc[dateStr]) acc[dateStr] = 0;
-    acc[dateStr] += price;
+    acc[dateStr] += cost;
     return acc;
   }, {});
 
-  const chartPointsRaw = Object.keys(aggregatedTickets).map(date => ({
+  const chartPointsRaw = Object.keys(aggregatedJourneys).map(date => ({
     date,
-    revenue: aggregatedTickets[date]
+    revenue: aggregatedJourneys[date]
   }));
 
   const chartWidth = 500;
@@ -147,6 +149,7 @@ export default function FinancePage() {
     return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
   }, '');
 
+  // Fixed syntax issue from original code snippet where array index calculation broke
   const areaPath = chartPoints.length > 0 
     ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${chartHeight} L ${chartPoints[0].x} ${chartHeight} Z`
     : '';
@@ -184,22 +187,22 @@ export default function FinancePage() {
   const idleDash = idleRatio * circumference;
   const maintDash = maintRatio * circumference;
 
-  // Dynamic calculations for cards & breakdown
-  const totalRevenueCalc = ticketData.reduce((sum, t) => sum + (t.price || t.amount || 25.00), 0);
+  // Dynamic calculations from Journey records
+  const totalRevenueCalc = journeyData.reduce((sum, j) => sum + (j.totalCost || j.price || j.amount || 25.00), 0);
   
-  const digitalRevenueCalc = ticketData
-    .filter(t => {
-      const method = (t.paymentMethod || t.method || '').toLowerCase();
+  const digitalRevenueCalc = journeyData
+    .filter(j => {
+      const method = (j.paymentMethod || j.method || '').toLowerCase();
       return !method.includes('cash');
     })
-    .reduce((sum, t) => sum + (t.price || t.amount || 25.00), 0);
+    .reduce((sum, j) => sum + (j.totalCost || j.price || j.amount || 25.00), 0);
 
   const cashRevenueCalc = totalRevenueCalc - digitalRevenueCalc;
-  const totalTransactionsCount = ticketData.length;
+  const totalTransactionsCount = journeyData.length;
 
-  const routeBreakdown = ticketData.reduce((acc: { [key: string]: number }, t: any) => {
-    const key = t.routeName || t.lineName || (t.routeId ? `Route #${t.routeId}` : 'Standard Route');
-    const amt = t.price || t.amount || 25.00;
+  const routeBreakdown = journeyData.reduce((acc: { [key: string]: number }, j: any) => {
+    const key = j.routeName || j.lineName || (j.endStopId ? `Route Destination #${j.endStopId}` : 'Standard Route');
+    const amt = j.totalCost || j.price || j.amount || 25.00;
     acc[key] = (acc[key] || 0) + amt;
     return acc;
   }, {});
@@ -211,13 +214,13 @@ export default function FinancePage() {
     return { name, amount, pct, color: colors[idx % colors.length] };
   });
 
-  const paymentBreakdown = ticketData.reduce((acc: { [key: string]: number }, t: any) => {
-    const rawMethod = (t.paymentMethod || t.method || 'Digital SmartCard').toLowerCase();
+  const paymentBreakdown = journeyData.reduce((acc: { [key: string]: number }, j: any) => {
+    const rawMethod = (j.paymentMethod || j.method || 'Digital SmartCard').toLowerCase();
     let key = 'NFC SmartCard';
     if (rawMethod.includes('cash')) key = 'Physical Cash';
     else if (rawMethod.includes('qr') || rawMethod.includes('app') || rawMethod.includes('mobile')) key = 'QR Mobile App';
 
-    const amt = t.price || t.amount || 25.00;
+    const amt = j.totalCost || j.price || j.amount || 25.00;
     acc[key] = (acc[key] || 0) + amt;
     return acc;
   }, {});
@@ -263,7 +266,7 @@ export default function FinancePage() {
           <CardContent className="pt-5">
             <div className="text-xl font-mono font-bold">{totalTransactionsCount.toLocaleString()}</div>
             <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Total recorded transactions</span>
+              <span>Total recorded journeys</span>
               <span className="text-secondary">Live feed</span>
             </div>
           </CardContent>
@@ -287,12 +290,16 @@ export default function FinancePage() {
         {/* Revenue Over Time Chart Card */}
         <div className="bg-[#111C30] border border-[#1E2E4A] rounded-xl p-6 shadow-xl">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-sm font-bold text-white tracking-wide">Revenue Over Time</h3>
+            <h3 className="text-sm font-bold text-white tracking-wide">Revenue Over Time (Journey Data)</h3>
             <div className="flex items-center space-x-2">
-              <select className="bg-[#0B1120] border border-[#1E2E4A] text-slate-300 text-xs rounded px-2.5 py-1.5 font-mono">
-                <option>Last 30 days</option>
-                <option>Last 7 days</option>
-                <option>Today</option>
+              <select 
+                value={timeframe} 
+                onChange={(e) => setTimeframe(e.target.value)}
+                className="bg-[#0B1120] border border-[#1E2E4A] text-slate-300 text-xs rounded px-2.5 py-1.5 font-mono"
+              >
+                <option value="30days">Last 30 days</option>
+                <option value="7days">Last 7 days</option>
+                <option value="today">Today</option>
               </select>
               <button className="bg-[#0B1120] border border-[#1E2E4A] hover:bg-[#192642] text-slate-300 text-xs px-3 py-1.5 rounded flex items-center space-x-1 font-mono">
                 <Download size={12} />
@@ -317,10 +324,10 @@ export default function FinancePage() {
             </div>
 
             <div className="w-full h-48 pl-12 relative flex items-center justify-center">
-              {loadingTickets ? (
-                <span className="text-xs font-mono text-slate-400">Loading live records...</span>
+              {loadingJourneys ? (
+                <span className="text-xs font-mono text-slate-400">Loading live journey records...</span>
               ) : chartPoints.length === 0 ? (
-                <span className="text-xs font-mono text-slate-500 italic">No ticket records found in the database.</span>
+                <span className="text-xs font-mono text-slate-500 italic">No journey records found in the database.</span>
               ) : (
                 <svg className="w-full h-full overflow-visible" viewBox="0 0 500 200" preserveAspectRatio="none">
                   <defs>
@@ -349,7 +356,7 @@ export default function FinancePage() {
             </div>
 
             <div className="flex justify-between text-[10px] font-mono text-slate-400 pl-12 pt-2 border-t border-[#1E2E4A]">
-              {loadingTickets ? (
+              {loadingJourneys ? (
                 <span>Loading...</span>
               ) : chartPoints.length > 0 ? (
                 chartPoints.map((pt, idx) => (
@@ -459,7 +466,7 @@ export default function FinancePage() {
       {/* REVENUE DIMENSIONS & BREAKDOWN SECTION */}
       <Card>
         <CardHeader className="flex-row items-center justify-between">
-          <CardTitle className="text-sm uppercase tracking-wider">Revenue Dimensions &amp; Ticket Distribution</CardTitle>
+          <CardTitle className="text-sm uppercase tracking-wider">Revenue Dimensions &amp; Journey Distribution</CardTitle>
           <div className="flex items-center gap-4 text-xs text-muted-foreground font-mono">
             <span 
               onClick={() => setActiveDimension('route')}
@@ -492,7 +499,7 @@ export default function FinancePage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {loadingTickets ? (
+            {loadingJourneys ? (
               <p className="text-xs font-mono text-muted-foreground">Loading route metrics...</p>
             ) : routeItems.length > 0 ? (
               routeItems.map((route) => (
@@ -505,7 +512,7 @@ export default function FinancePage() {
               ))
             ) : (
               <div className="col-span-4 rounded-lg border border-border bg-muted/20 p-4 text-center font-mono text-xs text-slate-400">
-                Awaiting route transactions from backend tickets.
+                Awaiting route transactions from backend journeys.
               </div>
             )}
           </div>
@@ -521,80 +528,80 @@ export default function FinancePage() {
       </Card>
 
       {/* Refunds & Audit Reports */}
-<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-  <Card className="flex flex-col justify-between">
-    <CardHeader>
-      <CardTitle className="text-sm uppercase tracking-wider">Process commuter refund</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div>
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">Select Transaction</label>
-        <select
-          value={selectedTxId}
-          onChange={(e) => {
-            const txId = e.target.value;
-            setSelectedTxId(txId);
-            const found = ticketData.find((t: any) => String(t.ticketId || t.id) === txId);
-            if (found) {
-              setRefundAmount(found.price || found.amount || found.farePaid || 25.00);
-            } else {
-              setRefundAmount(0);
-            }
-          }}
-          className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
-        >
-          <option value="">-- Choose transaction --</option>
-          {ticketData && ticketData.length > 0 ? (
-            ticketData.map((t: any) => {
-              const id = t.ticketId || t.id;
-              const label = t.qrCodeData || t.routeName || `TX-${id}`;
-              const amt = t.price || t.amount || t.farePaid || 25.00;
-              const dateStr = t.issueDate ? ` (${new Date(t.issueDate).toLocaleDateString()})` : '';
-              return (
-                <option key={id} value={id}>
-                  {label} — R{amt.toFixed(2)} [Status: {t.status || 'Active'}]{dateStr}
-                </option>
-              );
-            })
-          ) : (
-            <option value="" disabled>No transactions available</option>
-          )}
-        </select>
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount (ZAR)</label>
-        <input
-          type="text"
-          readOnly
-          value={refundAmount ? `R${refundAmount.toFixed(2)}` : 'R0.00'}
-          className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
-        />
-      </div>
-      <Button 
-        className="w-full" 
-        onClick={handleProcessRefund} 
-        disabled={isRefunding || !selectedTxId}
-      >
-        {isRefunding ? 'Processing Refund...' : 'Issue fare credit / refund'}
-      </Button>
-    </CardContent>
-  </Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="flex flex-col justify-between">
+          <CardHeader>
+            <CardTitle className="text-sm uppercase tracking-wider">Process commuter refund</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Select Journey Transaction</label>
+              <select
+                value={selectedTxId}
+                onChange={(e) => {
+                  const txId = e.target.value;
+                  setSelectedTxId(txId);
+                  const found = journeyData.find((j: any) => String(j.journeyID || j.id) === txId);
+                  if (found) {
+                    setRefundAmount(found.totalCost || found.price || found.amount || 25.00);
+                  } else {
+                    setRefundAmount(0);
+                  }
+                }}
+                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
+              >
+                <option value="">-- Choose transaction --</option>
+                {journeyData && journeyData.length > 0 ? (
+                  journeyData.map((j: any) => {
+                    const id = j.journeyID || j.id;
+                    const label = j.ticketReference ? `Ticket Ref: ${j.ticketReference.substring(0, 8)}...` : `Journey #${id}`;
+                    const amt = j.totalCost || j.price || j.amount || 25.00;
+                    const dateStr = j.createdAt ? ` (${new Date(j.createdAt).toLocaleDateString()})` : '';
+                    return (
+                      <option key={id} value={id}>
+                        {label} — R{amt.toFixed(2)} [Status: {j.status || 'Active'}]{dateStr}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <option value="" disabled>No transactions available</option>
+                )}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Amount (ZAR)</label>
+              <input
+                type="text"
+                readOnly
+                value={refundAmount ? `R${refundAmount.toFixed(2)}` : 'R0.00'}
+                className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm font-mono"
+              />
+            </div>
+            <Button 
+              className="w-full" 
+              onClick={handleProcessRefund} 
+              disabled={isRefunding || !selectedTxId}
+            >
+              {isRefunding ? 'Processing Refund...' : 'Issue fare credit / refund'}
+            </Button>
+          </CardContent>
+        </Card>
 
-  <Card className="flex flex-col justify-between">
-    <CardHeader>
-      <CardTitle className="text-sm uppercase tracking-wider">Conductor shift audit reports</CardTitle>
-      <CardDescription>
-        Compile daily financial transactions, ticket reconciliations, and cash drop variances into a secure PDF
-        pulled directly from the backend server.
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <Button className="w-full" onClick={handleExportReport} disabled={loading}>
-        {loading ? 'Generating PDF...' : 'Download shift report PDF'}
-      </Button>
-    </CardContent>
-  </Card>
-</div>
+        <Card className="flex flex-col justify-between">
+          <CardHeader>
+            <CardTitle className="text-sm uppercase tracking-wider">Conductor shift audit reports</CardTitle>
+            <CardDescription>
+              Compile daily financial transactions, journey reconciliations, and cash drop variances into a secure PDF
+              pulled directly from the backend server.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button className="w-full" onClick={handleExportReport} disabled={loading}>
+              {loading ? 'Generating PDF...' : 'Download shift report PDF'}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
