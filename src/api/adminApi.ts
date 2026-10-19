@@ -193,7 +193,7 @@ export const adminApi = {
     await apiClient.put('ticket/status', payload);
   },
 
-  processRefund: async (ticketId: string | number): Promise<void> => {
-    await apiClient.post(`Ticket/refund/${ticketId}`);
-  },
+ processRefund: async (ticketId: string | number): Promise<void> => {
+  await apiClient.post(`Journey/refund/${ticketId}`);
+},
 };
