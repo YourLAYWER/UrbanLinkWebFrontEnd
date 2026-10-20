@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Bus } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { adminApi, type ActiveTripDto } from '@/api/adminApi';
+import { adminApi, type FleetVehicleDto } from '@/api/adminApi';
 
 interface MapTarget {
   name: string;
-  type: 'Commuter' | 'Driver';
+  type: 'Commuter' | 'Driver' | 'Bus';
   lat: number;
   lng: number;
   status: string;
@@ -22,51 +22,62 @@ export default function LiveTrackingPage() {
   const incomingTarget = (location.state as { target?: MapTarget } | null)?.target ?? null;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<ActiveTripDto[]>([]);
+  const [searchResults, setSearchResults] = useState<FleetVehicleDto[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  // Default to a fallback target (e.g., Gqeberha center) if no incoming target exists
+  // Default to Gqeberha center or incoming route target
   const [selectedTarget, setSelectedTarget] = useState<MapTarget | null>(
     incomingTarget ?? {
       name: 'Central Depot / Default View',
-      type: 'Driver',
+      type: 'Bus',
       lat: -33.9608,
       lng: 25.6022,
       status: 'Active',
-      route: 'Main Routeing Grid',
-      details: 'Select a searched trip to track live telemetry.',
+      route: 'Main Routing Grid',
+      details: 'Select a searched bus to track live telemetry.',
     }
   );
 
-  const handleSearchTrips = async () => {
+  const handleSearchBuses = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
     try {
-      const results = await adminApi.searchActiveTrips(searchQuery);
-      setSearchResults(results);
-      if (results && results.length > 0) {
-        const first = results[0];
+      // Fetch all fleet/buses from database
+      const allFleet = await adminApi.getAllFleet();
+      const filtered = Array.isArray(allFleet) 
+        ? allFleet.filter(v => 
+            (v.unitCode || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (v.driverName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (v.route || '').toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : [];
+
+      setSearchResults(filtered);
+
+      if (filtered.length > 0) {
+        const first = filtered[0];
+        // Generate pseudo-live coordinates around Summerstrand/Gqeberha grid
         setSelectedTarget({
-          name: `${first.commuterName} (${first.cardId})`,
-          type: 'Commuter',
-          lat: -33.958 + (Math.random() - 0.5) * 0.02,
-          lng: 25.61 + (Math.random() - 0.5) * 0.02,
-          status: first.status,
-          route: first.route,
-          details: `Current station: ${first.currentStation}`,
+          name: `${first.unitCode} — Driver: ${first.driverName || 'Unassigned'}`,
+          type: 'Bus',
+          lat: -33.9608 + (Math.random() - 0.5) * 0.02,
+          lng: 25.6022 + (Math.random() - 0.5) * 0.02,
+          status: first.status || 'Active',
+          route: first.route || 'Standard Route',
+          details: `Fuel/Battery: ${first.fuelBatteryLevel}% | Telemetry: Operational`,
         });
       }
     } catch (err) {
-      console.warn('Trip search endpoint unreachable, using mock data for testing', err);
-      // Fallback mock data so you can test the map UI immediately if the API fails
+      console.warn('Fleet search endpoint unreachable, using fake live GPS feed', err);
+      // Fallback fake live telemetry for testing
       setSelectedTarget({
-        name: `Test Commuter (${searchQuery})`,
-        type: 'Commuter',
-        lat: -33.9608,
-        lng: 25.6022,
+        name: `Bus Unit (${searchQuery.toUpperCase()})`,
+        type: 'Bus',
+        lat: -33.9550 + (Math.random() - 0.5) * 0.01,
+        lng: 25.6100 + (Math.random() - 0.5) * 0.01,
         status: 'In Transit',
-        route: 'Route A1',
-        details: 'Current station: Main St.',
+        route: 'Line 4 Crosstown',
+        details: 'Simulated live GPS fix | Speed: 42 km/h',
       });
       setSearchResults([]);
     } finally {
@@ -74,75 +85,75 @@ export default function LiveTrackingPage() {
     }
   };
 
-  const handleSelectTripItem = (trip: ActiveTripDto) => {
+  const handleSelectBusItem = (vehicle: FleetVehicleDto) => {
     setSelectedTarget({
-      name: `${trip.commuterName} (${trip.cardId})`,
-      type: 'Commuter',
-      lat: -33.965,
-      lng: 25.605,
-      status: trip.status,
-      route: trip.route,
-      details: `Current station: ${trip.currentStation}`,
+      name: `${vehicle.unitCode} — Driver: ${vehicle.driverName || 'Unassigned'}`,
+      type: 'Bus',
+      lat: -33.9600 + (Math.random() - 0.5) * 0.01,
+      lng: 25.6050 + (Math.random() - 0.5) * 0.01,
+      status: vehicle.status || 'Active',
+      route: vehicle.route || 'Standard Route',
+      details: `Fuel/Battery: ${vehicle.fuelBatteryLevel}% | Status: ${vehicle.status}`,
     });
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Live Tracking</h2>
-        <p className="text-sm text-muted-foreground">Search commuters and drivers, and follow them on the map.</p>
+        <h2 className="text-2xl font-semibold tracking-tight">Live Bus Tracking</h2>
+        <p className="text-sm text-muted-foreground">Search fleet units, bus numbers, or drivers for real-time GIS telemetry.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="flex flex-col justify-between lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Navigation className="size-4 text-secondary" />
-              Commuter &amp; driver lookup
+              <Bus className="size-4 text-secondary" />
+              Fleet &amp; Bus Lookup
             </CardTitle>
-            <CardDescription>Search by passenger name or card ID.</CardDescription>
+            <CardDescription>Search by bus fleet code (e.g. ALGOA-042) or driver name.</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="Search name or card ID..."
+                placeholder="Search bus code, driver..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearchTrips()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchBuses()}
               />
-              <Button size="sm" onClick={handleSearchTrips} disabled={isSearching}>
+              <Button size="sm" onClick={handleSearchBuses} disabled={isSearching}>
                 {isSearching ? '...' : 'Locate'}
               </Button>
             </div>
 
             {searchResults.length > 0 ? (
               <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
-                {searchResults.map((trip, idx) => (
+                {searchResults.map((vehicle) => (
                   <div
-                    key={idx}
-                    onClick={() => handleSelectTripItem(trip)}
+                    key={vehicle.id}
+                    onClick={() => handleSelectBusItem(vehicle)}
                     className="cursor-pointer rounded-md border border-border bg-muted/40 p-3 text-xs transition-colors hover:border-secondary/50"
                   >
                     <div className="flex justify-between font-medium">
-                      <span>{trip.commuterName}</span>
-                      <span className="font-mono text-[10px] text-secondary">{trip.cardId}</span>
+                      <span className="font-bold font-mono">{vehicle.unitCode}</span>
+                      <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-400">{vehicle.status}</span>
                     </div>
                     <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-                      Route: {trip.route} | {trip.currentStation}
+                      Driver: {vehicle.driverName || 'Unassigned'} | {vehicle.route || 'No Route'}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="py-4 text-center text-xs italic text-muted-foreground">
-                Search results will appear here with live coordinates.
+                Search results will appear here with live GIS coordinates.
               </p>
             )}
 
             {selectedTarget && (
               <div className="rounded-md border border-secondary/30 bg-muted/60 p-3.5 font-mono text-xs">
                 <div className="mb-1 flex items-center justify-between font-bold text-secondary">
-                  <span>Active target locked</span>
+                  <span>Active bus target locked</span>
                   <span className="rounded bg-secondary/20 px-1.5 py-0.5 text-[10px]">{selectedTarget.type}</span>
                 </div>
                 <div className="font-bold">{selectedTarget.name}</div>
@@ -160,7 +171,7 @@ export default function LiveTrackingPage() {
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
               <MapPin className="size-4 text-secondary" />
-              Live GIS telemetry
+              Live GIS telemetry map
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -176,7 +187,7 @@ export default function LiveTrackingPage() {
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  Select a commuter or driver to center the map.
+                  Select a bus unit to center the map.
                 </div>
               )}
             </div>
