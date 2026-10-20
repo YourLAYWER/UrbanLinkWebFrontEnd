@@ -8,12 +8,44 @@ export function getIncidentColumns(
 ): ColumnDef<Incident>[] {
   return [
     { accessorKey: 'reportedByName', header: 'Reported By' },
-    // The "Type" column has been completely removed
+{ 
+      accessorKey: 'category', 
+      header: 'Category',
+      cell: ({ row }) => {
+        const dbCategory = String(row.original.category).toLowerCase().replace(/\s+/g, '');
+        
+        let displayCategory = String(row.original.category);
+        let badgeStyle = "bg-slate-100 text-slate-700"; 
+        
+        // High Alert (Bright Red): Engine issues
+        if (dbCategory.includes('engine') || dbCategory.includes('trouble')) {
+          badgeStyle = "bg-red-600 text-white shadow-sm";
+          displayCategory = "Engine Trouble";
+        } 
+        // SWAP 1: Database sent "SOS", but we want it to be "Passenger Dispute" (Bright Green)
+        else if (dbCategory === 'sos') {
+          displayCategory = "Passenger Dispute";
+          badgeStyle = "bg-green-600 text-white shadow-sm";
+        } 
+        // SWAP 2: Database sent "Passenger Dispute", but we want it to be "SOS" (Bright Orange)
+        else if (dbCategory.includes('dispute') || dbCategory.includes('passenger')) {
+          displayCategory = "SOS";
+          badgeStyle = "bg-orange-500 text-white shadow-sm";
+        }
+
+        return (
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${badgeStyle}`}>
+            {displayCategory}
+          </span>
+        );
+      }
+    },
     {
       accessorKey: 'description',
       header: 'Description',
       cell: ({ row }) => <span className="line-clamp-2 max-w-xs">{row.original.description}</span>,
     },
+   
     {
       accessorKey: 'status',
       header: 'Status',

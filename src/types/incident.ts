@@ -8,6 +8,8 @@ export interface Incident {
   status: IncidentStatus;
   createdAt: string;
   adminNotes: string | null;
+  category: string;
+  isEmergency?: boolean;
   resolvedAt?: string | null;
 }
 
