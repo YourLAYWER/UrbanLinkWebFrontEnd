@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, RefreshCw } from 'lucide-react';
+import { MapPin, RefreshCw, Search } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,9 @@ export default function FleetPage() {
   const [fleet, setFleet] = useState<FleetVehicleDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // 1. New search query state variable
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadFleetData = async () => {
     setIsRefreshing(true);
@@ -45,7 +48,6 @@ export default function FleetPage() {
     );
 
     try {
-      // Use the centralized adminApi wrapper to communicate with the backend
       await adminApi.updateBusStatus(id, newStatus);
     } catch (err) {
       console.warn('Failed to persist status change, reverting...', err);
@@ -69,6 +71,17 @@ export default function FleetPage() {
     });
   };
 
+  // 2. Filter fleet items dynamically based on the search query input
+  const filteredFleet = fleet.filter((vehicle) => {
+    const query = searchQuery.toLowerCase();
+    const unit = (vehicle.unitCode || '').toLowerCase();
+    const driver = (vehicle.driverName || '').toLowerCase();
+    const route = (vehicle.route || '').toLowerCase();
+    const status = (vehicle.status || '').toLowerCase();
+
+    return unit.includes(query) || driver.includes(query) || route.includes(query) || status.includes(query);
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -83,9 +96,27 @@ export default function FleetPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Fleet Telemetry</CardTitle>
-          <CardDescription>{fleet.length} vehicle{fleet.length === 1 ? '' : 's'} tracked</CardDescription>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-base">Fleet Telemetry</CardTitle>
+              <CardDescription>
+                Showing {filteredFleet.length} of {fleet.length} vehicle{fleet.length === 1 ? '' : 's'}
+              </CardDescription>
+            </div>
+
+            {/* 3. Search Bar Input Element */}
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search bus, driver, route..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading && (
@@ -96,7 +127,7 @@ export default function FleetPage() {
           )}
 
           {!isLoading &&
-            fleet.map((vehicle) => (
+            filteredFleet.map((vehicle) => (
               <div
                 key={vehicle.id}
                 className="flex items-center justify-between rounded-lg border border-border bg-muted/40 p-4"
@@ -127,8 +158,10 @@ export default function FleetPage() {
               </div>
             ))}
 
-          {!isLoading && fleet.length === 0 && (
-            <p className="py-6 text-center text-sm text-muted-foreground">No vehicles found.</p>
+          {!isLoading && filteredFleet.length === 0 && (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {searchQuery ? `No vehicles matched "${searchQuery}".` : 'No vehicles found.'}
+            </p>
           )}
         </CardContent>
       </Card>
