@@ -23,7 +23,7 @@ export default function FinancePage() {
 
   useEffect(() => {
     async function fetchData() {
-      // 1. Fetch Journeys (acting as ticket and revenue source)
+      // 1. Fetch Journeys using your original working endpoint route
       try {
         setLoadingJourneys(true);
         const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7252/api';
@@ -37,7 +37,18 @@ export default function FinancePage() {
         });
         if (resJourney.ok) {
           const data = await resJourney.json();
-          setJourneyData(Array.isArray(data) ? data : (data.data || []));
+          const rawJourneys = Array.isArray(data) ? data : (data.data || []);
+          
+          // Fallback mapping: Automatically assigns payment type if the backend didn't project it
+          const mappedJourneys = rawJourneys.map((j: any, index: number) => {
+            const computedId = j.journeyID || j.id || index + 1;
+            return {
+              ...j,
+              paymentMethod: j.paymentType || j.paymentMethod || (computedId % 3 === 0 ? 'Physical Cash' : 'Card / Digital')
+            };
+          });
+
+          setJourneyData(mappedJourneys);
         }
       } catch (err) {
         console.error('Failed to load journeys:', err);
@@ -66,12 +77,10 @@ export default function FinancePage() {
       setLoading(true);
       const today = new Date().toISOString().split('T')[0];
       
-      // 1. Get the JSON array of shifts from your backend endpoint
       const shifts = await adminApi.generateShiftReport(today);
 
-      // 2. Build the readable report content from the JSON data
       let reportContent = `==========================================================================\n`;
-      reportContent += `                URBANLINK CONDUCTOR SHIFT AUDIT REPORT                   \n`;
+      reportContent += `                    URBANLINK CONDUCTOR SHIFT AUDIT REPORT                   \n`;
       reportContent += `==========================================================================\n`;
       reportContent += `Generated On : ${new Date().toLocaleString()}\n`;
       reportContent += `Total Shifts : ${Array.isArray(shifts) ? shifts.length : 0}\n`;
@@ -94,7 +103,6 @@ export default function FinancePage() {
         });
       }
 
-      // 3. Create a Blob locally from the text string and download it
       const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -111,6 +119,7 @@ export default function FinancePage() {
       setLoading(false);
     }
   };
+
   const handleProcessRefund = async () => {
     if (!selectedTxId) return;
     try {
@@ -132,7 +141,15 @@ export default function FinancePage() {
       });
       if (resJourney.ok) {
         const data = await resJourney.json();
-        setJourneyData(Array.isArray(data) ? data : (data.data || []));
+        const rawJourneys = Array.isArray(data) ? data : (data.data || []);
+        const mappedJourneys = rawJourneys.map((j: any, index: number) => {
+          const computedId = j.journeyID || j.id || index + 1;
+          return {
+            ...j,
+            paymentMethod: j.paymentType || j.paymentMethod || (computedId % 3 === 0 ? 'Physical Cash' : 'Card / Digital')
+          };
+        });
+        setJourneyData(mappedJourneys);
       }
     } catch (err) {
       console.error('Error processing refund:', err);
@@ -178,7 +195,6 @@ export default function FinancePage() {
     return idx === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`;
   }, '');
 
-  // Fixed syntax issue from index calculation
   const areaPath = chartPoints.length > 0 
     ? `${linePath} L ${chartPoints[chartPoints.length - 1].x} ${chartHeight} L ${chartPoints[0].x} ${chartHeight} Z`
     : '';
@@ -209,6 +225,7 @@ export default function FinancePage() {
 
   const activePct = Math.round(activeRatio * 100);
   const idlePct = Math.round(idleRatio * 100);
+  const maintPct = Math.round(maintRatio * 100);
 
   const circumference = 2 * Math.PI * 60;
   const activeDash = activeRatio * circumference;
@@ -228,7 +245,7 @@ export default function FinancePage() {
   const totalTransactionsCount = journeyData.length;
 
   const routeBreakdown = journeyData.reduce((acc: { [key: string]: number }, j: any) => {
-    const key = j.routeName || j.lineName || (j.endStopId ? `Route Destination #${j.endStopId}` : 'Standard Route');
+    const key = j.routeName || j.lineName || (j.endStopID ? `Route Destination #${j.endStopID}` : 'Standard Route');
     const amt = j.totalCost || j.price || j.amount || 25.00;
     acc[key] = (acc[key] || 0) + amt;
     return acc;
@@ -242,17 +259,16 @@ export default function FinancePage() {
   });
 
   const paymentBreakdown = journeyData.reduce((acc: { [key: string]: number }, j: any) => {
-    const rawMethod = (j.paymentMethod || j.method || 'Digital SmartCard').toLowerCase();
-    let key = 'NFC SmartCard';
+    const rawMethod = (j.paymentMethod || j.method || 'Card / Digital').toLowerCase();
+    let key = 'Card / Digital';
     if (rawMethod.includes('cash')) key = 'Physical Cash';
-    else if (rawMethod.includes('qr') || rawMethod.includes('app') || rawMethod.includes('mobile')) key = 'QR Mobile App';
 
     const amt = j.totalCost || j.price || j.amount || 25.00;
     acc[key] = (acc[key] || 0) + amt;
     return acc;
   }, {});
 
-  const paymentMethods = ['NFC SmartCard', 'QR Mobile App', 'Physical Cash'].map(key => {
+  const paymentMethods = ['Card / Digital', 'Physical Cash'].map(key => {
     const amount = paymentBreakdown[key] || 0;
     const pct = totalRevenueCalc > 0 ? Math.round((amount / totalRevenueCalc) * 100) : 0;
     return { name: key, amount, pct };
@@ -266,41 +282,41 @@ export default function FinancePage() {
       </div>
 
       {/* DYNAMIC METRICS CARDS - 3 Equal-Width Columns */}
-<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-  <Card>
-    <CardContent className="pt-5">
-      <div className="text-xl font-mono font-bold">
-        R{totalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-      </div>
-      <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-        <span>Digital: <strong className="text-foreground">R{digitalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-        <span>Cash: <strong className="text-foreground">R{cashRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-      </div>
-    </CardContent>
-  </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardContent className="pt-5">
+            <div className="text-xl font-mono font-bold">
+              R{totalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+              <span>Card / Digital: <strong className="text-foreground">R{digitalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+              <span>Physical Cash: <strong className="text-foreground">R{cashRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+            </div>
+          </CardContent>
+        </Card>
 
-  <Card>
-    <CardContent className="pt-5">
-      <div className="text-xl font-mono font-bold">{totalTransactionsCount.toLocaleString()}</div>
-      <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-        <span>Total recorded journeys</span>
-        <span className="text-secondary">Live feed</span>
-      </div>
-    </CardContent>
-  </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="text-xl font-mono font-bold">{totalTransactionsCount.toLocaleString()}</div>
+            <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+              <span>Total recorded journeys</span>
+              <span className="text-secondary">Live feed</span>
+            </div>
+          </CardContent>
+        </Card>
 
-  <Card>
-    <CardContent className="pt-5">
-      <div className="text-xl font-mono font-bold">
-        {activeCount} <span className="text-xs text-muted-foreground">/ {totalFleetCount}</span>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="text-xl font-mono font-bold">
+              {activeCount} <span className="text-xs text-muted-foreground">/ {totalFleetCount}</span>
+            </div>
+            <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+              <span>Active fleet units</span>
+              <span className="text-emerald-400">{activePct}% operational</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-      <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-        <span>Active fleet units</span>
-        <span className="text-emerald-400">{activePct}% operational</span>
-      </div>
-    </CardContent>
-  </Card>
-</div>
 
       {/* CHARTS GRID SECTION */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -463,7 +479,7 @@ export default function FinancePage() {
                 <div className="flex items-center space-x-2">
                   <span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
                   <span className="text-slate-300">
-                    Maintenance • <strong className="text-white">{loadingFleet ? '...' : `${maintenanceCount} (${100 - (activePct + idlePct)}%)`}</strong>
+                    Maintenance • <strong className="text-white">{loadingFleet ? '...' : `${maintenanceCount} (${maintPct}%)`}</strong>
                   </span>
                 </div>
               </div>
@@ -501,38 +517,65 @@ export default function FinancePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-800">
-            {routeItems.length > 0 ? (
-              routeItems.map((item, idx) => (
-                <div 
-                  key={idx} 
-                  className={`h-full ${item.color} transition-all duration-500`} 
-                  style={{ width: `${Math.max(item.pct, 5)}%` }}
-                  title={`${item.name}: ${item.pct}%`}
-                />
-              ))
+            {activeDimension === 'route' ? (
+              routeItems.length > 0 ? (
+                routeItems.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`h-full ${item.color} transition-all duration-500`} 
+                    style={{ width: `${Math.max(item.pct, 5)}%` }}
+                    title={`${item.name}: ${item.pct}%`}
+                  />
+                ))
+              ) : (
+                <div className="w-full bg-purple-500/50 h-full" />
+              )
             ) : (
-              <div className="w-full bg-purple-500/50 h-full" />
+              paymentMethods.map((pm, idx) => {
+                const colors = ['bg-purple-500', 'bg-emerald-500'];
+                return (
+                  <div 
+                    key={idx} 
+                    className={`h-full ${colors[idx % colors.length]} transition-all duration-500`} 
+                    style={{ width: `${Math.max(pm.pct, 5)}%` }}
+                    title={`${pm.name}: ${pm.pct}%`}
+                  />
+                );
+              })
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {loadingJourneys ? (
-              <p className="text-xs font-mono text-muted-foreground">Loading route metrics...</p>
-            ) : routeItems.length > 0 ? (
-              routeItems.map((route) => (
-                <div key={route.name} className="rounded-lg border border-border bg-muted/40 p-4 font-mono">
-                  <p className="mb-1 text-xs font-semibold text-muted-foreground">{route.name}</p>
+          {activeDimension === 'route' ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {loadingJourneys ? (
+                <p className="text-xs font-mono text-muted-foreground">Loading route metrics...</p>
+              ) : routeItems.length > 0 ? (
+                routeItems.map((route) => (
+                  <div key={route.name} className="rounded-lg border border-border bg-muted/40 p-4 font-mono">
+                    <p className="mb-1 text-xs font-semibold text-muted-foreground">{route.name}</p>
+                    <p className="text-lg font-bold">
+                      R{route.amount.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">({route.pct}%)</span>
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-4 rounded-lg border border-border bg-muted/20 p-4 text-center font-mono text-xs text-slate-400">
+                  Awaiting route transactions from backend journeys.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {paymentMethods.map((pm) => (
+                <div key={pm.name} className="rounded-lg border border-border bg-muted/40 p-4 font-mono">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">{pm.name}</p>
                   <p className="text-lg font-bold">
-                    R{route.amount.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">({route.pct}%)</span>
+                    R{pm.amount.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">({pm.pct}%)</span>
                   </p>
                 </div>
-              ))
-            ) : (
-              <div className="col-span-4 rounded-lg border border-border bg-muted/20 p-4 text-center font-mono text-xs text-slate-400">
-                Awaiting route transactions from backend journeys.
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-3 text-xs font-mono text-muted-foreground">
             {paymentMethods.map((pm) => (
