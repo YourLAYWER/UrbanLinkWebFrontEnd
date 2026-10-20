@@ -265,52 +265,42 @@ export default function FinancePage() {
         <p className="text-sm text-muted-foreground">Period: Today (live feed) &middot; Audit cycle: 06:00 - 18:00 UTC</p>
       </div>
 
-      {/* DYNAMIC METRICS CARDS */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xl font-mono font-bold">
-              R{totalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Digital: <strong className="text-foreground">R{digitalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-              <span>Cash: <strong className="text-foreground">R{cashRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xl font-mono font-bold text-destructive">-R142.20</div>
-            <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Tolerable rate: 0.20%</span>
-              <span className="font-bold text-destructive">Action req.</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xl font-mono font-bold">{totalTransactionsCount.toLocaleString()}</div>
-            <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Total recorded journeys</span>
-              <span className="text-secondary">Live feed</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-5">
-            <div className="text-xl font-mono font-bold">
-              {activeCount} <span className="text-xs text-muted-foreground">/ {totalFleetCount}</span>
-            </div>
-            <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-              <span>Active fleet units</span>
-              <span className="text-emerald-400">{activePct}% operational</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* DYNAMIC METRICS CARDS - 3 Equal-Width Columns */}
+<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <Card>
+    <CardContent className="pt-5">
+      <div className="text-xl font-mono font-bold">
+        R{totalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </div>
+      <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+        <span>Digital: <strong className="text-foreground">R{digitalRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+        <span>Cash: <strong className="text-foreground">R{cashRevenueCalc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card>
+    <CardContent className="pt-5">
+      <div className="text-xl font-mono font-bold">{totalTransactionsCount.toLocaleString()}</div>
+      <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+        <span>Total recorded journeys</span>
+        <span className="text-secondary">Live feed</span>
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card>
+    <CardContent className="pt-5">
+      <div className="text-xl font-mono font-bold">
+        {activeCount} <span className="text-xs text-muted-foreground">/ {totalFleetCount}</span>
+      </div>
+      <div className="mt-3 flex justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
+        <span>Active fleet units</span>
+        <span className="text-emerald-400">{activePct}% operational</span>
+      </div>
+    </CardContent>
+  </Card>
+</div>
 
       {/* CHARTS GRID SECTION */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
