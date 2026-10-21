@@ -80,54 +80,81 @@ export default function FinancePage() {
 
     fetchData();
   }, []);
-
   const handleExportReport = async () => {
-    try {
-      setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
-      
-      const shifts = await adminApi.generateShiftReport(today);
+  try {
+    setLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 1. Fetch JSON data from your backend endpoint
+    const shifts = await adminApi.generateShiftReport(today);
 
-      let reportContent = `==========================================================================\n`;
-      reportContent += `                    URBANLINK CONDUCTOR SHIFT AUDIT REPORT                   \n`;
-      reportContent += `==========================================================================\n`;
-      reportContent += `Generated On : ${new Date().toLocaleString()}\n`;
-      reportContent += `Total Shifts : ${Array.isArray(shifts) ? shifts.length : 0}\n`;
-      reportContent += `==========================================================================\n\n`;
-
-      if (!Array.isArray(shifts) || shifts.length === 0) {
-        reportContent += `No shift records found.\n`;
-      } else {
-        shifts.forEach((shift: any) => {
-          reportContent += `Shift ID       : #${shift.shiftId}\n`;
-          reportContent += `Conductor      : ${shift.conductorName} (${shift.conductorEmail})\n`;
-          reportContent += `Bus Fleet No.  : ${shift.busFleetNumber}\n`;
-          reportContent += `Transit Route  : ${shift.routeName}\n`;
-          reportContent += `Start Time     : ${shift.shiftStartTime}\n`;
-          reportContent += `End Time       : ${shift.shiftEndTime}\n`;
-          reportContent += `Cash Collected : R ${shift.totalCashCollected.toFixed(2)}\n`;
-          reportContent += `Digital Scans  : ${shift.digitalTicketScanned}\n`;
-          reportContent += `Total Revenue  : R ${shift.totalShiftRevenue.toFixed(2)}\n`;
-          reportContent += `--------------------------------------------------------------------------\n`;
-        });
-      }
-
-      const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Conductor_Shift_Audit_Report_${today}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Export report error:', err);
-      alert('Could not generate shift report from backend.');
-    } finally {
-      setLoading(false);
+    // 2. Open a clean hidden print window to generate a native browser PDF / Print preview
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      alert('Please allow popups for this website to print reports.');
+      return;
     }
-  };
+
+    let htmlContent = `
+      <html>
+        <head>
+          <title>Conductor Shift Audit Report - ${today}</title>
+          <style>
+            body { font-family: monospace; padding: 20px; color: #000; }
+            h2 { text-align: center; margin-bottom: 5px; }
+            .meta { text-align: center; font-size: 12px; margin-bottom: 20px; color: #555; }
+            .shift-box { border: 1px solid #ccc; padding: 12px; margin-bottom: 15px; border-radius: 4px; background: #f9f9f9; }
+            .shift-box p { margin: 4px 0; font-size: 13px; }
+            .total { font-weight: bold; border-top: 1px dashed #999; padding-top: 4px; margin-top: 4px; }
+          </style>
+        </head>
+        <body>
+          <h2>URBANLINK CONDUCTOR SHIFT AUDIT REPORT</h2>
+          <div class="meta">Generated On: ${new Date().toLocaleString()} | Total Shifts: ${Array.isArray(shifts) ? shifts.length : 0}</div>
+    `;
+
+    if (!Array.isArray(shifts) || shifts.length === 0) {
+      htmlContent += `<p style="text-align: center; font-style: italic;">No shift records found.</p>`;
+    } else {
+      shifts.forEach((shift: any, index: number) => {
+        htmlContent += `
+          <div class="shift-box">
+            <p><strong>Shift ID:</strong> #${shift.shiftId || index + 1}</p>
+            <p><strong>Conductor:</strong> ${shift.conductorName} (${shift.conductorEmail})</p>
+            <p><strong>Bus Fleet No.:</strong> ${shift.busFleetNumber}</p>
+            <p><strong>Transit Route:</strong> ${shift.routeName}</p>
+            <p><strong>Start Time:</strong> ${shift.shiftStartTime}</p>
+            <p><strong>End Time:</strong> ${shift.shiftEndTime}</p>
+            <p>Cash Collected: R ${shift.totalCashCollected.toFixed(2)}</p>
+            <p>Digital Scans: ${shift.digitalTicketScanned}</p>
+            <p class="total">Total Revenue: R ${shift.totalShiftRevenue.toFixed(2)}</p>
+          </div>
+        `;
+      });
+    }
+
+    htmlContent += `
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    // Wait for content to load then trigger browser print dialog (User can select "Save as PDF")
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+
+  } catch (err) {
+    console.error('Export report error:', err);
+    alert('Could not generate shift report from backend.');
+  } finally {
+    setLoading(false);
+  }
+};
+  
 
   const handleProcessRefund = async () => {
     if (!selectedTxId) return;
