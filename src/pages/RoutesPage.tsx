@@ -107,7 +107,8 @@ export default function RoutesPage() {
                       </StatusPill>
                     </CardTitle>
                     <CardDescription>
-                      {route.providerName} · Base fare {fareFormat.format(route.baseFare)}
+                      {route.providerName} · Base fare {fareFormat.format(route.baseFare)} ·{' '}
+                      {route.isBidirectional ? 'Two-way' : 'One-way'}
                     </CardDescription>
                   </div>
                   <Button
@@ -125,6 +126,7 @@ export default function RoutesPage() {
                 </CardHeader>
                 <CardContent>
                   <RouteMetadataForm
+                    key={route.id}
                     providers={providers ?? []}
                     submitLabel="Save changes"
                     isPending={updateRoute.isPending}
@@ -134,6 +136,8 @@ export default function RoutesPage() {
                       transportType: (TRANSIT_TYPES[Number(route.transportType)] ?? 'Bus') as TransitTypeName,
                       baseFare: route.baseFare,
                       providerId: route.providerId,
+                      isBidirectional: route.isBidirectional,
+                      routeMapPath: route.routeMapPath ?? '',
                     }}
                     onSubmit={(values) =>
                       updateRoute.mutate({
@@ -141,6 +145,8 @@ export default function RoutesPage() {
                         transportType: TRANSIT_TYPES.indexOf(values.transportType),
                         baseFare: values.baseFare,
                         providerId: values.providerId,
+                        isBidirectional: values.isBidirectional,
+                        routeMapPath: values.routeMapPath,
                       })
                     }
                   />
@@ -180,7 +186,7 @@ export default function RoutesPage() {
       </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">New route</DialogTitle>
           </DialogHeader>
@@ -196,6 +202,8 @@ export default function RoutesPage() {
                   transportType: TRANSIT_TYPES.indexOf(values.transportType),
                   baseFare: values.baseFare,
                   providerId: values.providerId,
+                  isBidirectional: values.isBidirectional,
+                  routeMapPath: values.routeMapPath,
                 },
                 {
                   onSuccess: (data) => {

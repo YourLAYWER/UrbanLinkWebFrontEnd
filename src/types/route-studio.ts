@@ -52,6 +52,8 @@ export interface RouteDetail {
   baseFare: number;
   providerId: number;
   providerName: string | null;
+  isBidirectional: boolean;
+  routeMapPath: string;
   schedules: ScheduleEntry[];
   segments: RouteSegmentDetail[];
 }

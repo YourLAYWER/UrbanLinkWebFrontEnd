@@ -6,6 +6,8 @@ export const routeMetadataSchema = z.object({
   transportType: z.enum(TRANSIT_TYPES),
   baseFare: z.number().min(0, 'Base fare cannot be negative'),
   providerId: z.number().int().positive('Choose a provider'),
+  isBidirectional: z.boolean(),
+  routeMapPath: z.string().trim(),
 });
 export type RouteMetadataValues = z.infer<typeof routeMetadataSchema>;
 

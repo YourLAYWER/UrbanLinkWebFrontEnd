@@ -26,6 +26,8 @@ export interface RoutePayload {
   transportType: number;
   baseFare: number;
   providerId: number;
+  isBidirectional: boolean;
+  routeMapPath: string;
 }
 
 export const createRoute = async (payload: RoutePayload) => {
