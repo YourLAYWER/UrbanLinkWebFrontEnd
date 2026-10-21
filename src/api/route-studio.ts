@@ -84,3 +84,11 @@ export const createSegment = async (payload: SegmentPayload) => {
   const { data } = await apiClient.post<{ id: number }>('/RouteSegments', payload);
   return data;
 };
+
+export const updateSegment = async (id: number, payload: SegmentPayload) => {
+  await apiClient.put(`/RouteSegments/${id}`, { id, ...payload });
+};
+
+export const deleteSegment = async (id: number) => {
+  await apiClient.delete(`/RouteSegments/${id}`);
+};

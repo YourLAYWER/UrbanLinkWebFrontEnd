@@ -114,3 +114,20 @@ export function useCreateSegment(routeId: number) {
     onSuccess: invalidate,
   });
 }
+
+export function useUpdateSegment(routeId: number) {
+  const invalidate = useInvalidateRoutes(routeId);
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: Omit<SegmentPayload, 'routeId'> }) =>
+      api.updateSegment(id, { ...payload, routeId }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteSegment(routeId: number) {
+  const invalidate = useInvalidateRoutes(routeId);
+  return useMutation({
+    mutationFn: (id: number) => api.deleteSegment(id),
+    onSuccess: invalidate,
+  });
+}
